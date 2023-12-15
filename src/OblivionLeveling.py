@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # A simple utility to help manage Elder Scrolls Oblivion Leveling
 #
 # (C) Copyright Richard Rodenbusch 2023.

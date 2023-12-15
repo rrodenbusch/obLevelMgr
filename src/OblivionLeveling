@@ -1,0 +1,3 @@
+#!/bin/bash
+# Bash executable script
+/usr/bin/env python3 ${BASH_SOURCE[0]}.py
