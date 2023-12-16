@@ -14,44 +14,7 @@
 import tkinter as tk
 from tkinter import messagebox
 
-import os
-import numpy as np
-import pandas as pd
-import sqlite3, argparse
-import logging
 import pandastable as pt
-
-   
-def padlist(oldlist: list, nrows=1, ncols=1, default=None, inplace=True):
-    """ Pad a 2 dim list to the given shape
-    
-    Args:
-        oldlist (list) : data to be padded (if needed)
-        nrows (int) : Number of rows to pad to, default = 1 
-        ncols (int) : Number of columns to pad to, default = 1
-        default (type) : Default value to be used to pad the list; default = None
-        inplace (boolean) : If true edits the existing list, otherwise created and pads a new list
-        
-    Returns:
-        The padded list
-    """
-    if inplace:
-        newlist = oldlist
-    else:
-        newlist = oldlist.copy()
-
-    if len(newlist) < nrows:
-        if ncols > 0:
-            newlist += [ [default for j in range(ncols)] for i in range(nrows - len(newlist)) ]
-        else:
-            newlist += [default for x in range(nrows - len(newlist))]
-            
-    if ncols > 0:
-        for i in range(nrows):
-            if len(newlist[i]) < ncols:
-                newlist[i] += [ default for j in range(ncols - len(newlist[i])) ]
-
-    return newlist
 
 
 def _getShape(shape=(1, 1), data=None):
@@ -355,19 +318,19 @@ class LocalDialog():
         width = kw.get('width', 40)
         self._entry = tk.Entry(self._popup, width=width,)
         if 'default' in kw:
-            self._entry.insert(0,kw['default'])
+            self._entry.insert(0, kw['default'])
         curRow = 0
         if 'text' in kw:
             label = tk.Label(self._popup, text=kw['text'], anchor='n')
-            label.grid(row=0,column=0,columnspan=2,sticky='ew')
+            label.grid(row=0, column=0, columnspan=2, sticky='ew')
             curRow += 1        
         self._entry.grid(row=curRow, column=0, columnspan=2, sticky='ew')
         self._okButton = tk.Button(self._popup, text='OK', command=self._okPress)
-        self._okButton.grid(row=curRow+1, column=0, sticky='e', padx=5, pady=5)
+        self._okButton.grid(row=curRow + 1, column=0, sticky='e', padx=5, pady=5)
         self._cancelButton = tk.Button(self._popup, text='Cancel', command=self._cancelPress)
-        self._cancelButton.grid(row=curRow+1, column=1, sticky='w', padx=5, pady=5)
+        self._cancelButton.grid(row=curRow + 1, column=1, sticky='w', padx=5, pady=5)
         self._popup.rowconfigure(curRow, weight=1)
-        self._popup.rowconfigure(curRow+1, weight=0)
+        self._popup.rowconfigure(curRow + 1, weight=0)
         self._popup.columnconfigure(0, weight=1)
         self._popup.columnconfigure(1, weight=1)
         self._popup.protocol("WM_DELETE_WINDOW", self._cancelPress)
@@ -378,7 +341,7 @@ class LocalDialog():
         
     def _okPress(self):
         _validator = {'integer':int, 'flaot': float, 'complex':complex}
-        valid = _validator.get(self._dtype,str)
+        valid = _validator.get(self._dtype, str)
         try:
             if self._dtype == 'integer':
                 self._resp = _validator['integer'](self._entry.get())
@@ -493,8 +456,8 @@ class LocalEntryFrame(tk.Frame):
             for col in range(ncols):
                 if (self._editable and
                      ((row in editrows) or (col in editcols) or _getValue(editable, row=row, col=col, default=False))):
-                    curValue= _getValue(data, row=row, col=col, default='')
-                    if isinstance(curValue,str):
+                    curValue = _getValue(data, row=row, col=col, default='')
+                    if isinstance(curValue, str):
                         justify = 'left'
                     else:
                         justify = 'center'
@@ -713,10 +676,11 @@ class LocalTableFrame(tk.Frame):
     """
 
     def __init__(self, parent=None, dataframe=None, title='obTable'):
-        self._main = tk.Toplevel(parent=parent)
-        self._main.geometry('600x400+200+100')
-        self._main.title(title)
-        f = tk.Frame(self._main)
+        self._popup = tk.Toplevel(parent)
+        self._popup.geometry('600x400')
+        self._popup.title(title)
+        self.parent = parent
+        f = tk.Frame(self._popup)
         f.pack(fill=tk.BOTH, expand=1)
         if dataframe is None:
             dataframe = pt.TableModel.getSampleData()          
@@ -724,6 +688,9 @@ class LocalTableFrame(tk.Frame):
                                showtoolbar=True, showstatusbar=True)
         # set some options
         self._table.textcolor = 'red' 
+        self._popup.takefocus = True
+        self._popup.grab_set()
+        _place_window(self._popup, self.parents)
         self._table.show()
         return
 

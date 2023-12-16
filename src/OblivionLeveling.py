@@ -12,20 +12,22 @@
 # that they have been altered from the originals.
 
 # pylint: disable=bad-docstring-quotes,invalid-name
-import argparse
-import logging
 import os
 import sqlite3
-import pyautogui
 
-import numpy as np
+import pyautogui
+import argparse
+import logging
 import pandas as pd
-import pandastable as pt
 import tkinter as tk
 
 from tkinter import messagebox, filedialog as fd
 import datadialogs
-from datadialogs import LocalDataFrame, LocalButtonFrame, LocalTableFrame, SideBySideDialog, LocalEntryFrame
+from datadialogs import (LocalDataFrame,
+                         LocalButtonFrame,
+                         LocalTableFrame,
+                         SideBySideDialog,
+                         LocalEntryFrame,)
 
 
 def get_args():
@@ -75,6 +77,11 @@ class rootWindow(tk.Frame):
         self._selectList = None
         self._dirty = [ 0 ]
         self._filetypes = (('DB files', '*.db'), ('All files', '*.*'))
+        self._incCommands = [[lambda: self._inc(0)], [lambda: self._inc(1)], [lambda: self._inc(2)], [lambda: self._inc(3)], [lambda: self._inc(4)],
+            [lambda: self._inc(5)], [lambda: self._inc(6)], [lambda: self._inc(7)], [lambda: self._inc(8)], [lambda: self._inc(9)],
+            [lambda: self._inc(10)], [lambda: self._inc(11)], [lambda: self._inc(12)], [lambda: self._inc(13)], [lambda: self._inc(14)],
+            [lambda: self._inc(15)], [lambda: self._inc(16)], [lambda: self._inc(17)], [lambda: self._inc(18)], [lambda: self._inc(19)],
+            [lambda: self._inc(20)], ]
 
         if parent is None: parent = tk.Tk()
         self.parent = parent
@@ -102,7 +109,6 @@ class rootWindow(tk.Frame):
             skillshape = (21, 1)
             attrshape = (7, 1)
             attrdesc = (7, 3)
-            self._initDataSets()
             
             if len(self._majorList) > 0:
                 rowbg = ['#C9C9C9' for x in range(len(self._majorList))]
@@ -121,15 +127,10 @@ class rootWindow(tk.Frame):
             
             self._skills = LocalDataFrame(self.parent, data=self._stats, shape=skillshape, cnf=skillcnf, rowbg=rowbg, anchor='n')
             self._skills.grid(row=1, column=0, sticky='nsew')
-            
-            commands = [[lambda: self._inc(0)], [lambda: self._inc(1)], [lambda: self._inc(2)], [lambda: self._inc(3)], [lambda: self._inc(4)],
-                        [lambda: self._inc(5)], [lambda: self._inc(6)], [lambda: self._inc(7)], [lambda: self._inc(8)], [lambda: self._inc(9)],
-                        [lambda: self._inc(10)], [lambda: self._inc(11)], [lambda: self._inc(12)], [lambda: self._inc(13)], [lambda: self._inc(14)],
-                        [lambda: self._inc(15)], [lambda: self._inc(16)], [lambda: self._inc(17)], [lambda: self._inc(18)], [lambda: self._inc(19)],
-                        [lambda: self._inc(20)], ]
+             
             self._buttons = LocalButtonFrame(self.parent, shape=skillshape, rowbg=rowbg,
                                           data=[ ['Inc'] for y in range(skillshape[0])] ,
-                                          commands=commands,)
+                                          commands=self._incCommands,)
             self._buttons.grid(row=1, column=1, sticky='nsew')
             
             self._desc = LocalEntryFrame(self.parent, data=self._skilldesclist, cnf=desccnf, rowbg=rowbg,)
@@ -156,7 +157,7 @@ class rootWindow(tk.Frame):
             self._attrs = None
             self._attrdesclist = None
             self._attrdesc = None
-        self._checkMenu()
+        # self._checkMenu()
         return
     
     def _refreshData(self):
@@ -165,9 +166,10 @@ class rootWindow(tk.Frame):
             
     def _initDataSets(self):
         self._sqls = {'skilldesc': 'select Skill, Attr, Skilldesc from skillMap order by MajorSkill Desc, Skill Asc',
-              'skillkey': 'select ROWID, MajorSkill from skillMap order by MajorSkill Desc, Skill Asc',
+              'skillkey': 'select ROWID, MajorSkill, underline from skillMap order by MajorSkill Desc, Skill Asc',
               'stats': 'select CurValue, Increase from statsMap where level = ? order by MajorSkill Desc, Skill Asc',
               'attrdesc': 'select name, desc  from obAttributes order by name Asc',
+              'underlines': 'select name, underline from skillMap order by MajorSkill Desc, Skill Asc',
               'attrkey': 'select ROWID from obAttributes order by name Asc',
               'statskey': 'select ROWID from statsMap where level = ? order by MajorSkill Desc, Skill Asc',
               'attrsum': f'select sum(CurValue) as CurValue, sum(Increase) as Increase from statsMap where level = ? '
@@ -203,7 +205,9 @@ class rootWindow(tk.Frame):
         self._row2SkillKey = [ [] for x in range(len(keymap)) ]
         self._minorList = []
         self._majorList = []
+        self._row2Underline = []
         for i in range(len(keymap)):
+            self._row2Underline.append(keymap[i][2])
             key = keymap[i][0]
             self._skillKey2Row[key] = i
             self._row2SkillKey[i] = key
@@ -287,11 +291,13 @@ class rootWindow(tk.Frame):
             (fpath, fname) = os.path.split(filename)
             self._dbName = filename
             self.parent.title(f'Oblivion Levels {fname}')
+            self._initDataSets()
             self._drawFrame()
+            self._fillIncMenu()
         
-    def _openDB(self):
+    def _openDB(self,*args):
         filename = fd.askopenfilename(parent=self.parent, title='Open Database', filetypes=self._filetypes)
-        if filename is not None:
+        if filename and len(filename):
             if os.path.isfile(filename):
                 (fpath, fname) = os.path.split(filename)
                 self._setDB(filename)
@@ -356,7 +362,7 @@ class rootWindow(tk.Frame):
                 messagebox.showerror('SQL error', f'Set Level {level}\n'
                                      f' failed with message\n{str(e)}')
         
-    def _updateLevel(self):
+    def _editLevel(self):
         level = datadialogs.askinteger('Level to Edit', 'Enter the Level to Edit', parent=self.parent,
                                        default=self._curLevel)
         if level is not None:
@@ -367,8 +373,8 @@ class rootWindow(tk.Frame):
                     newStats = myEntry.data
                     with sqlite3.connect(self._dbName) as conn:
                         for row in newStats:
-                            conn.execute('update obStats set curvalue=? where SKILLID = ? and level = ?', 
-                                         (row[1], self._skill2key[row[0]],level))
+                            conn.execute('update obStats set curvalue=? where SKILLID = ? and level = ?',
+                                         (row[1], self._skill2key[row[0]], level))
                     self._curLevel = level
                     self._drawFrame()
                 except sqlite3.Error as e:
@@ -391,7 +397,7 @@ class rootWindow(tk.Frame):
                                      f' failed with message\n{str(e)}')
             self._drawFrame()
 
-    def _saveDB(self, force=False):
+    def _saveDB(self, *args, force=False):
         if force or messagebox.askyesno('Save', 'Commit all skill level changes?'):
             try:
                 with sqlite3.connect(self._dbName) as conn:
@@ -405,11 +411,11 @@ class rootWindow(tk.Frame):
                 messagebox.showerror('SQL error', f'Update on {skill} @ row {row} failed with message\n{str(e)}')
         self._checkMenu()
                 
-    def _newDB(self):
+    def _newDB(self, *args):
         filename = fd.asksaveasfilename(parent=self.parent, title='Create Database',
                                         filetypes=self._filetypes, defaultextension='.db',
                                         confirmoverwrite=False)
-        if filename:
+        if filename and len(filename):
             if not os.path.isfile(filename) and messagebox.askyesno('Create DB', f'Create New DB at\n\t{filename}'):
                 logger.debug(f'Create database {filename}')
                 with open('create_obdb.sql', 'r') as f:
@@ -437,23 +443,19 @@ class rootWindow(tk.Frame):
     def _setupMenu(self):
         self._menu = tk.Menu(self.parent)
         self._setupFileMenu()
+        self._filemenu.entryconfigure(2, state='disabled')  # Save menu on if valid
         self._setupDataMenu()
+        self._menu.entryconfigure(3, state='disabled')
+        self._setupIncMenu()
+        self._menu.entryconfigure(3, state='disabled')
         self.parent.config(menu=self._menu)
-
-    def _showSkillsMap(self):
-        if self._skillmapdf is None:
-            self._skillmapdf = self._getDataFrame('select * from skillMap')
-        if self._skillsmap:
-            self._skillsmap.destroy()
-            self._skillsmap = None
-        self._skillsmap = LocalTableFrame(parent=None, dataframe=self._skillmapdf, title='Skills Map')
 
     def _showSQL(self):
         sql = datadialogs.askstring('SQL', 'Enter SQL for query', parent=self.parent)
         if sql:
             try:
                 df = self._getDataFrame(sql)
-                datatable = LocalTableFrame(parent=None, dataframe=df, title=f'Query: {sql}')
+                datatable = LocalTableDialog(parent=se.f.parent, dataframe=df, title=f'Query: {sql}')
             except (sqlite3.Warning, sqlite3.Error, pd.errors.DatabaseError) as e:
                 messagebox.showerror('SQL error', f'Error in {sql}\n{str(e)}')
              
@@ -464,37 +466,48 @@ class rootWindow(tk.Frame):
             self._minorList = self._selectList.left
             self._majorList = self._selectList.right
             self._saveMajorList()
+
+    def _setupIncMenu(self):
+        self._incMenu = tk.Menu(self._menu, tearoff=0)
+        self._menu.add_cascade(label='Increment', menu=self._incMenu, underline=0)
         
+    def _fillIncMenu(self):
+        lastItem = self._incMenu.index(tk.END)
+        if lastItem is not None:
+            for i in range(lastItem + 1):
+                self._incMenu.delete("end")
+        for row in range(len(self._row2Underline)):
+            skill = self._skilldesclist[row][0]
+            underline = self._row2Underline[row]
+            self._incMenu.add_command(label=skill, command=self._incCommands[row][0], underline=underline)
+
     def _setupDataMenu(self):
         self._dataMenu = tk.Menu(self._menu, tearoff=0)
-        self._dataMenu.add_command(label="Level-Up", command=self._nextLevel)        
-        self._dataMenu.add_command(label="Refresh Data", command=self._refreshData)        
+        self._dataMenu.add_command(label="Level-Up", command=self._nextLevel, underline=6)        
+        self._dataMenu.add_command(label="Refresh Data", command=self._refreshData, underline=0)        
         self._dataMenu.add_separator()
-        self._dataMenu.add_command(label="Set Level", command=self._setLevel)
-        self._dataMenu.add_command(label="Update Level", command=self._updateLevel)
-        self._dataMenu.add_command(label="Major Skills", command=self._selectMajorSkills)
+        self._dataMenu.add_command(label="Set Level", command=self._setLevel, underline=4)
+        self._dataMenu.add_command(label="Edit Level", command=self._editLevel, underline=0)
+        self._dataMenu.add_command(label="Major Skills", command=self._selectMajorSkills, underline=0)
         self._dataMenu.add_separator()
-        self._dataMenu.add_command(label='SQL', command=self._showSQL)
-        self._menu.add_cascade(label='Data', menu=self._dataMenu)
-           
-    def _setupEditMenu(self):
-        self._editmenu = tk.Menu(self._menu, tearoff=0)
-        self._editmenu.add_command(label="Level", command=self._doNothing)
-        self._editmenu.add_command(label="Skills", command=self._editskills)
-        self._editmenu.add_command(label="Preferences", command=self._doNothing)
-        self._filemenu.add_separator()
-        self._filemenu.add_command(label='Quit', command=self._quit)
-        self._menu.add_cascade(label='File', menu=self._filemenu)  
+        self._dataMenu.add_command(label='SQL', command=self._showSQL, underline=0)
+        self._menu.add_cascade(label='Data', menu=self._dataMenu, underline=0)
            
     def _setupFileMenu(self):
         self._filemenu = tk.Menu(self._menu, tearoff=0)
-        self._filemenu.add_command(label="New", command=self._newDB)
-        self._filemenu.add_command(label="Open", command=self._openDB)
-        self._filemenu.add_command(label="Save", command=self._saveDB)
+        self._filemenu.add_command(label="New", command=self._newDB, accelerator='Ctrl-N', underline=0)
+        self._filemenu.add_command(label="Open", command=self._openDB, accelerator='Ctrl-O', underline=0)
+        self._filemenu.add_command(label="Save", command=self._saveDB, accelerator='Ctrl-S', underline=0)
         self._filemenu.add_separator()
 
-        self._filemenu.add_command(label='Quit', command=self._quit)
-        self._menu.add_cascade(label='File', menu=self._filemenu)
+        self._filemenu.add_command(label='Quit', command=self._quit, accelerator='Ctrl-Q', underline=0)
+        self._menu.add_cascade(label='File', menu=self._filemenu, underline=0)
+        self.parent.bind('<Control-KeyPress-N>',self._newDB)
+        self.parent.bind('<Control-KeyPress-O>',self._openDB)
+        self.parent.bind('<Control-KeyPress-Q>',self._quit)
+        self.parent.bind('<Control-KeyPress-n>',self._newDB)
+        self.parent.bind('<Control-KeyPress-o>',self._openDB)
+        self.parent.bind('<Control-KeyPress-q>',self._quit)
 
     def _checkMenu(self):
         STATES = ['disabled', 'normal', ]
@@ -502,12 +515,20 @@ class rootWindow(tk.Frame):
         dbValid = self._dbName is not None and os.path.isfile(self._dbName)
         dbDirty = dbValid and (sum(self._dirty) > 0)
         levelUp = (dbValid and self._levelUp > 9)
+        if dbDirty:
+            self.parent.bind('<Control-KeyPress-s>',self._saveDB)   
+            self.parent.bind('<Control-KeyPress-S>',self._saveDB)
+        else:
+            self.parent.unbind('<Control-KeyPress-S>')
+            self.parent.unbind('<Control-KeyPress-s>')
         self._filemenu.entryconfigure(2, state=STATES[int(dbDirty)])  # Save menu on if valid
         self._menu.entryconfigure(2, state=STATES[dbValid])  # Level menu only if valid
+        self._menu.entryconfigure(3, state=STATES[dbValid])
+
         if dbValid:
             self._dataMenu.entryconfigure(0, state=STATES[int(levelUp)])
         
-    def _quit(self):
+    def _quit(self, *args):
         if sum(self._dirty) > 0:
             if messagebox.askyesno('Save Changes', 'Save Changes to Database before exit?'):
                 self._saveDB(force=True)
@@ -521,7 +542,7 @@ def main():
     logger.debug('Begin main()')
     args = get_args()
     if args.verbose:
-        logging.basicConfig(level=logging.INFO)
+        logger.setLevel(logging.INFO)
     # config = get_config()
     mainWindow = rootWindow(title=f'Level Manager: {args.database}', dbname=args.database,
                             cnf={})

@@ -12,6 +12,7 @@
           desc VARCHAR(128),
           class VARCHAR(7),
           major INT DEFAULT 0,
+          underline INT DEFAULT 0,
           FOREIGN KEY(ATTRID) REFERENCES obAttributes(ROWID)
           );
     CREATE TABLE IF NOT EXISTS obStats (
@@ -29,6 +30,7 @@
         a.name as Skill,
         a.desc as SkillDesc,
         a.major as MajorSkill,
+        a.underline as Underline,
         b.name as Attr,
         b.desc as AttrDesc
         FROM obSkills a
