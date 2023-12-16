@@ -295,7 +295,7 @@ class rootWindow(tk.Frame):
             self._drawFrame()
             self._fillIncMenu()
         
-    def _openDB(self,*args):
+    def _openDB(self, *args):
         filename = fd.askopenfilename(parent=self.parent, title='Open Database', filetypes=self._filetypes)
         if filename and len(filename):
             if os.path.isfile(filename):
@@ -366,6 +366,9 @@ class rootWindow(tk.Frame):
         level = datadialogs.askinteger('Level to Edit', 'Enter the Level to Edit', parent=self.parent,
                                        default=self._curLevel)
         if level is not None:
+            if self._dirty:
+                if messagebox.askyesno('Save Changes', 'Save Changes? Unsaved changes will be lost.'):
+                    self._saveDB(force=True)
             levels = self._getLevel(level)          
             myEntry = datadialogs.LocalEntryDialog(self.parent, cnf={'bg':'#D3B683'})
             if myEntry.show(data=levels, editcols=[1, 2, ], cnf={ 'bd':1, 'relief':'flat', 'bg':'#D3B683', }):
@@ -376,6 +379,7 @@ class rootWindow(tk.Frame):
                             conn.execute('update obStats set curvalue=? where SKILLID = ? and level = ?',
                                          (row[1], self._skill2key[row[0]], level))
                     self._curLevel = level
+                    self._initDataSets()
                     self._drawFrame()
                 except sqlite3.Error as e:
                     messagebox.showerror('SQL error', f'Update Level {level} skill {skill}\n'
@@ -502,12 +506,12 @@ class rootWindow(tk.Frame):
 
         self._filemenu.add_command(label='Quit', command=self._quit, accelerator='Ctrl-Q', underline=0)
         self._menu.add_cascade(label='File', menu=self._filemenu, underline=0)
-        self.parent.bind('<Control-KeyPress-N>',self._newDB)
-        self.parent.bind('<Control-KeyPress-O>',self._openDB)
-        self.parent.bind('<Control-KeyPress-Q>',self._quit)
-        self.parent.bind('<Control-KeyPress-n>',self._newDB)
-        self.parent.bind('<Control-KeyPress-o>',self._openDB)
-        self.parent.bind('<Control-KeyPress-q>',self._quit)
+        self.parent.bind('<Control-KeyPress-N>', self._newDB)
+        self.parent.bind('<Control-KeyPress-O>', self._openDB)
+        self.parent.bind('<Control-KeyPress-Q>', self._quit)
+        self.parent.bind('<Control-KeyPress-n>', self._newDB)
+        self.parent.bind('<Control-KeyPress-o>', self._openDB)
+        self.parent.bind('<Control-KeyPress-q>', self._quit)
 
     def _checkMenu(self):
         STATES = ['disabled', 'normal', ]
@@ -516,8 +520,8 @@ class rootWindow(tk.Frame):
         dbDirty = dbValid and (sum(self._dirty) > 0)
         levelUp = (dbValid and self._levelUp > 9)
         if dbDirty:
-            self.parent.bind('<Control-KeyPress-s>',self._saveDB)   
-            self.parent.bind('<Control-KeyPress-S>',self._saveDB)
+            self.parent.bind('<Control-KeyPress-s>', self._saveDB)   
+            self.parent.bind('<Control-KeyPress-S>', self._saveDB)
         else:
             self.parent.unbind('<Control-KeyPress-S>')
             self.parent.unbind('<Control-KeyPress-s>')
