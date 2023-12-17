@@ -169,6 +169,7 @@ class rootWindow(tk.Frame):
               'skillkey': 'select ROWID, MajorSkill, underline from skillMap order by MajorSkill Desc, Skill Asc',
               'stats': 'select CurValue, Increase from statsMap where level = ? order by MajorSkill Desc, Skill Asc',
               'attrdesc': 'select name, desc  from obAttributes order by name Asc',
+              'attrvals': 'select curvalue, name from attrsMap where level = ? order by name',
               'underlines': 'select name, underline from skillMap order by MajorSkill Desc, Skill Asc',
               'attrkey': 'select ROWID from obAttributes order by name Asc',
               'statskey': 'select ROWID from statsMap where level = ? order by MajorSkill Desc, Skill Asc',
@@ -230,6 +231,7 @@ class rootWindow(tk.Frame):
             levels = self._getDataList('select max(level) from obStats')
             self._curLevel = levels[0][0]
         
+        self._attrVals = self._getDataList(self._sqls['attrvals'], (self._curLevel,))
         self._stats = self._getDataList(self._sqls['stats'], (self._curLevel,))
         self._levelUp = sum([x[1] for x in self._stats[:self._majorSkillCnt]])
         keymap = self._getDataList(self._sqls['statskey'], (self._curLevel,))
@@ -242,6 +244,8 @@ class rootWindow(tk.Frame):
             rowcnt += 1
 
         self._attrSums = self._getDataList(self._sqls['attrsum'], (self._curLevel,))
+        for row in range(len(self._attrSums)):
+            self._attrSums[row] = [self._attrVals[row][0], self._attrSums[row][1]]
         if self._curLevel is None: self._curLevel = 0
             
     def _inc(self, x):
@@ -366,7 +370,7 @@ class rootWindow(tk.Frame):
         level = datadialogs.askinteger('Level to Edit', 'Enter the Level to Edit', parent=self.parent,
                                        default=self._curLevel)
         if level is not None:
-            if self._dirty:
+            if sum(self._dirty):
                 if messagebox.askyesno('Save Changes', 'Save Changes? Unsaved changes will be lost.'):
                     self._saveDB(force=True)
             levels = self._getLevel(level)          
@@ -376,26 +380,51 @@ class rootWindow(tk.Frame):
                     newStats = myEntry.data
                     with sqlite3.connect(self._dbName) as conn:
                         for row in newStats:
+                            _name = row[0]
                             conn.execute('update obStats set curvalue=? where SKILLID = ? and level = ?',
                                          (row[1], self._skill2key[row[0]], level))
+                        if myEntry.show(data=self._attrVals, editcols=[0, ], widths=[10, 20, ]):
+                            newAttrs = myEntry.data
+                            for row in newAttrs:
+                                _name = self._attrVals[1]  # for Exception below
+                                params = (row[0], self._attr2key[row[1]], level,)
+                                conn.execute('update obAttrs set curvalue=? where ATTRID = ? and level = ?',
+                                             (row[0], self._attr2key[row[1]], level,))
                     self._curLevel = level
                     self._initDataSets()
+                    self._checkMenu()
                     self._drawFrame()
                 except sqlite3.Error as e:
-                    messagebox.showerror('SQL error', f'Update Level {level} skill {skill}\n'
+                    messagebox.showerror('SQL error', f'Update Level {level} skill {_name}\n'
                                          f' failed with message\n{str(e)}')
             
-    def _nextLevel(self):
+    def _levelUp(self):
         # Save current level and setup next level in database
         if messagebox.askyesno('Level Up', f'Save Level {self._curLevel} and Level Up?'):
             self._saveDB(force=True)
             try:
                 with sqlite3.connect(self._dbName) as conn:
-                    for curStats in [ (i, self._row2StatsKey[i]) for i in range(len(self._row2StatsKeys))]: 
+                    for curStats in [ (i, self._row2SkillKey[i]) for i in range(len(self._row2SkillKey))]: 
                         (row, statRowId) = curStats
                         params = (statRowId, self._curLevel + 1, self._stats[row][0], self._stats[row][0])
                         conn.execute('INSERT INTO obStats (SKILLID,level,curvalue, prevalue) VALUES (?,?,?,?)', params)
+                    for curAttr in [ (self._attrVals[i][0], self._attr2key[self._attrVals[i][1]])
+                                    for i in range(len(self._attrVals)) ]:
+                        params = (curAttr[0], curAttr[1], self._curLevel + 1)
+                        conn.execute('INSERT INTO obAttrs (curvalue,ATTRID,level) VALUES (?,?,?)', params)
                 self._curLevel += 1
+                self._initDataSets()
+                myEntry = datadialogs.LocalEntryDialog(self.parent, cnf={'bg':'#D3B683'})
+                if myEntry.show(data=self._attrVals, editcols=[0, ], widths=[10, 20, ]):
+                    with sqlite3.connect(self._dbName) as conn:
+                        newAttrs = myEntry.data
+                        for row in newAttrs:
+                            _name = row[1]  # for Exception below
+                            params = (row[0], self._attr2key[row[1]], self._curLevel,)
+                            conn.execute('update obAttrs set curvalue=? where ATTRID = ? and level = ?',
+                                         (row[0], self._attr2key[row[1]], self._curLevel,))
+                    self._initDataSets()
+                self._drawFrame()
             except sqlite3.Error as e:
                 messagebox.showerror('SQL error', f'Update on obStats(SKILLID,level,curvalue,prevalue)={params}\n'
                                      f' failed with message\n{str(e)}')
@@ -487,7 +516,7 @@ class rootWindow(tk.Frame):
 
     def _setupDataMenu(self):
         self._dataMenu = tk.Menu(self._menu, tearoff=0)
-        self._dataMenu.add_command(label="Level-Up", command=self._nextLevel, underline=6)        
+        self._dataMenu.add_command(label="Level-Up", command=self._levelUp, underline=6)        
         self._dataMenu.add_command(label="Refresh Data", command=self._refreshData, underline=0)        
         self._dataMenu.add_separator()
         self._dataMenu.add_command(label="Set Level", command=self._setLevel, underline=4)

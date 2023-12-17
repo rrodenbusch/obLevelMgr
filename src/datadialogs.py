@@ -429,8 +429,8 @@ class LocalEntryFrame(tk.Frame):
     
     """
 
-    def __init__(self, parent=None, cnf:dict={}, shape=(1, 1),
-                 data:list=None, rowbg:list=[], anchor:str='w', default=None, **kw):
+    def __init__(self, parent=None, cnf:dict={}, shape=(1, 1), 
+                 data:list=None, rowbg:list=[], anchor:str='w', widths=None, default=None, **kw):
         if parent is None: parent = tk.Tk()
         # self.master = parent
         tk.Frame.__init__(self, parent)
@@ -454,6 +454,7 @@ class LocalEntryFrame(tk.Frame):
         self.configure(cnf)
         for row in range(nrows):
             for col in range(ncols):
+                width = _getValue(widths,col=col,default=None)
                 if (self._editable and
                      ((row in editrows) or (col in editcols) or _getValue(editable, row=row, col=col, default=False))):
                     curValue = _getValue(data, row=row, col=col, default='')
@@ -461,8 +462,10 @@ class LocalEntryFrame(tk.Frame):
                         justify = 'left'
                     else:
                         justify = 'center'
-                    self._fields[row][col] = tk.Entry(self, justify=justify,
+                    self._fields[row][col] = tk.Entry(self, justify=justify, 
                                                           bg=_getValue(rowbg, row=row, default='white'))
+                    if width:
+                        self._fields[row][col]['width'] = width
                         
                     self._fields[row][col].insert(0, _getValue(data, row=row, col=col, default=''))
                 else: 

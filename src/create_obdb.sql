@@ -5,6 +5,14 @@
           ROWID INTEGER PRIMARY KEY AUTOINCREMENT,
           name  VARCHAR(20),
           desc  VARCHAR(128) );
+    CREATE TABLE IF NOT EXISTS obAttrs(
+          ROWID INTEGER PRIMARY KEY AUTOINCREMENT,
+          ATTRID INTEGER,
+          level  INTEGER DEFAULT 0,
+          curValue INTEGER DEFAULT 0,
+          UNIQUE(ATTRID, level),
+          FOREIGN KEY(ATTRID) REFERENCES obAttributes(ROWID)
+          );     
     CREATE TABLE IF NOT EXISTS obSkills(
           ROWID INTEGER PRIMARY KEY AUTOINCREMENT,
           ATTRID INTEGER,
@@ -49,3 +57,17 @@
         FROM obStats a
         LEFT JOIN obSkills b ON a.SKILLID = b.ROWID
         LEFT JOIN obAttributes c on b.ATTRID = c.ROWID;
+    CREATE VIEW attrsMap AS SELECT
+        a.ROWID,
+        a.level,
+        a.ATTRID,
+        a.level,
+        a.curvalue,
+        b.name,
+        b.desc
+        from obAttrs a
+        LEFT JOIN obAttributes b on a.ATTRID = b.ROWID;
+        a.desc as AttrDesc,
+        a.level,
+        
+        a.
