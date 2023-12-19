@@ -13,6 +13,7 @@
 
 # pylint: disable=bad-docstring-quotes,invalid-name
 import os
+import csv
 import sqlite3
 
 import pyautogui
@@ -64,6 +65,14 @@ class rootWindow(tk.Frame):
     Args:
         parent (tkinter.Tk) : Optional parent window
         title (str) : Optional title string for the window; default='obTable'
+        
+    Notes:
+        font attributes: {'family': 'Lucida Grande', 
+                          'weight': 'normal', 
+                          'slant': 'roman', 
+                          'overstrike': False, 
+                          'underline': False, 
+                           'size': 13}
 
     Returns:
         tk.Frame cover the parent Window
@@ -75,27 +84,37 @@ class rootWindow(tk.Frame):
         self._curLevel = None
         self._dbName = None
         self._selectList = None
+        self._notesDialog = None
+        (self._width, self._height) = (1860, 1175)
         self._dirty = [ 0 ]
+        self._levelsInc = 0
         self._filetypes = (('DB files', '*.db'), ('All files', '*.*'))
         self._incCommands = [[lambda: self._inc(0)], [lambda: self._inc(1)], [lambda: self._inc(2)], [lambda: self._inc(3)], [lambda: self._inc(4)],
             [lambda: self._inc(5)], [lambda: self._inc(6)], [lambda: self._inc(7)], [lambda: self._inc(8)], [lambda: self._inc(9)],
             [lambda: self._inc(10)], [lambda: self._inc(11)], [lambda: self._inc(12)], [lambda: self._inc(13)], [lambda: self._inc(14)],
             [lambda: self._inc(15)], [lambda: self._inc(16)], [lambda: self._inc(17)], [lambda: self._inc(18)], [lambda: self._inc(19)],
             [lambda: self._inc(20)], ]
+        self._incButtonHotkeys = []
 
         if parent is None: parent = tk.Tk()
+        self._defaultFont = tk.font.nametofont("TkDefaultFont") 
+        self._defaultFont.configure(size=18,)
+                                   # weight=font.BOLD ) 
+        
+        self._defaultFont = tk.font.Font(size=16,)
         self.parent = parent
         tk.Frame.__init__(self)
         self.main = self.master
         
         # Place the window at the current mouse position, supports multiple monitors best
-        self.main.geometry('1080x820')
+        self.main.geometry(f'{self._width}x{self._height}')
         mousepos = pyautogui.position()
         self.main.wm_geometry(f'+{mousepos[0]}+{mousepos[1]}')
         self.main.title(title)
         self.main['bg'] = '#D3B683'
         self.font = tk.font.nametofont("TkDefaultFont").actual()
         self.main.protocol("WM_DELETE_WINDOW", self._quit)
+        parent.bind("<Configure>", self._on_window_resize)
         self._setDB(dbname)
         self._setupMenu()
         self._drawFrame()
@@ -117,29 +136,35 @@ class rootWindow(tk.Frame):
             
             self._header1 = tk.Frame(self.parent, bg=skillcnf['bg'])
             self._header1.grid(row=0, column=0, sticky='nsew')
-            label1 = tk.Label(self._header1, text='Value', padx=1, pady=1, bg=skillcnf['bg'])
+            label1 = tk.Label(self._header1, text='Value', padx=1, pady=1, bg=skillcnf['bg'],
+                              font=self._defaultFont)
             label1.grid(row=0, column=0, sticky='nsew')            
-            label2 = tk.Label(self._header1, text='Increase', padx=1, pady=1, bg=skillcnf['bg'])
+            label2 = tk.Label(self._header1, text='Increase', padx=1, pady=1, bg=skillcnf['bg'],
+                              font=self._defaultFont)
             label2.grid(row=0, column=1, sticky='nsew')
-            self._header2 = tk.Label(self.parent, font=self.font,
-                                     text=f'       {self._levelUp*10}% to Next Level    -----   Current Level {self._curLevel} ', bg=skillcnf['bg'], anchor='w')
+            self._header2 = tk.Label(self.parent, font=self._defaultFont,
+                                     text=f'       {self._levelsInc*10}% to Next Level    -----   Current Level {self._curLevel} ', bg=skillcnf['bg'], anchor='w')
             self._header2.grid(row=0, column=1, columnspan=2, sticky='nsew')
             
-            self._skills = LocalDataFrame(self.parent, data=self._stats, shape=skillshape, cnf=skillcnf, rowbg=rowbg, anchor='n')
+            self._skills = LocalDataFrame(self.parent, data=self._stats, shape=skillshape, cnf=skillcnf, rowbg=rowbg,
+                                          font=self._defaultFont, anchor='n')
             self._skills.grid(row=1, column=0, sticky='nsew')
-             
+            
+            buttonLabels = self._fillIncMenu()
             self._buttons = LocalButtonFrame(self.parent, shape=skillshape, rowbg=rowbg,
-                                          data=[ ['Inc'] for y in range(skillshape[0])] ,
-                                          commands=self._incCommands,)
+                                          data=buttonLabels,
+                                          commands=self._incCommands, font=self._defaultFont,)
             self._buttons.grid(row=1, column=1, sticky='nsew')
             
-            self._desc = LocalEntryFrame(self.parent, data=self._skilldesclist, cnf=desccnf, rowbg=rowbg,)
+            self._desc = LocalEntryFrame(self.parent, data=self._skilldesclist, cnf=desccnf, rowbg=rowbg, font=self._defaultFont,)
             self._desc.grid(row=1, column=2, sticky='nsew')
             
-            self._attrs = LocalDataFrame(self.parent, shape=attrshape, cnf=skillcnf, data=self._attrSums, anchor='n',)
+            self._attrs = LocalDataFrame(self.parent, shape=attrshape, cnf=skillcnf, data=self._attrSums, anchor='n',
+                                         font=self._defaultFont,)
             self._attrs.grid(row=2, column=0, sticky='nsew', pady=10, ipady=2)
             
-            self._attrdesc = LocalDataFrame(self.parent, shape=attrdesc, cnf=desccnf, data=self._attrdesclist)
+            self._attrdesc = LocalDataFrame(self.parent, shape=attrdesc, cnf=desccnf, data=self._attrdesclist,
+                                            font=self._defaultFont)
             self._attrdesc.grid(row=2, column=2, sticky='nsew', pady=10,)
             
             self.parent.rowconfigure(1, weight=10)
@@ -165,14 +190,14 @@ class rootWindow(tk.Frame):
             self._drawFrame()
             
     def _initDataSets(self):
-        self._sqls = {'skilldesc': 'select Skill, Attr, Skilldesc from skillMap order by MajorSkill Desc, Skill Asc',
-              'skillkey': 'select ROWID, MajorSkill, underline from skillMap order by MajorSkill Desc, Skill Asc',
-              'stats': 'select CurValue, Increase from statsMap where level = ? order by MajorSkill Desc, Skill Asc',
+        self._sqls = {'skilldesc': 'select Skill, Attr, Skilldesc from skillMap order by MajorSkill Desc, sortorder Asc',
+              'skillkey': 'select ROWID, MajorSkill, underline from skillMap order by MajorSkill Desc, sortorder Asc',
+              'stats': 'select CurValue, Increase from statsMap where level = ? order by MajorSkill Desc, sortorder Asc',
               'attrdesc': 'select name, desc  from obAttributes order by name Asc',
               'attrvals': 'select curvalue, name from attrsMap where level = ? order by name',
               'underlines': 'select name, underline from skillMap order by MajorSkill Desc, Skill Asc',
               'attrkey': 'select ROWID from obAttributes order by name Asc',
-              'statskey': 'select ROWID from statsMap where level = ? order by MajorSkill Desc, Skill Asc',
+              'statskey': 'select ROWID from statsMap where level = ? order by MajorSkill Desc, sortorder Asc',
               'attrsum': f'select sum(CurValue) as CurValue, sum(Increase) as Increase from statsMap where level = ? '
                          f'group by Attr order by Attr asc'
               }
@@ -233,7 +258,7 @@ class rootWindow(tk.Frame):
         
         self._attrVals = self._getDataList(self._sqls['attrvals'], (self._curLevel,))
         self._stats = self._getDataList(self._sqls['stats'], (self._curLevel,))
-        self._levelUp = sum([x[1] for x in self._stats[:self._majorSkillCnt]])
+        self._levelsInc = sum([x[1] for x in self._stats[:self._majorSkillCnt]])
         keymap = self._getDataList(self._sqls['statskey'], (self._curLevel,))
         self._stats2row = {}
         self._row2StatsKey = [[] for x in range(len(keymap))]
@@ -261,9 +286,9 @@ class rootWindow(tk.Frame):
             self._attrs.update(row=attrkey, data=self._attrSums[attrkey])
             self._dirty[x] = 1
             if x < self._majorSkillCnt:
-                self._levelUp += 1
-            
-        self._checkMenu()
+                self._levelsInc += 1
+                if self._levelsInc > 9:
+                    self._checkMenu()
         
     def _getDataList(self, sql, params=None):
         if self._dbName is not None and os.path.isfile(self._dbName): 
@@ -295,9 +320,10 @@ class rootWindow(tk.Frame):
             (fpath, fname) = os.path.split(filename)
             self._dbName = filename
             self.parent.title(f'Oblivion Levels {fname}')
+            self._checkMenu()
             self._initDataSets()
-            self._drawFrame()
             self._fillIncMenu()
+            self._drawFrame()
         
     def _openDB(self, *args):
         filename = fd.askopenfilename(parent=self.parent, title='Open Database', filetypes=self._filetypes)
@@ -305,9 +331,9 @@ class rootWindow(tk.Frame):
             if os.path.isfile(filename):
                 (fpath, fname) = os.path.split(filename)
                 self._setDB(filename)
+                self._checkMenu()
             else:
                 messagebox.showerror(title='Open File', message=f'{filename} does not exist')
-        self._checkMenu()
 
     def _saveMajorList(self):
         if messagebox.askyesno('Save', 'Commit Major Skill Changes?'):
@@ -397,7 +423,44 @@ class rootWindow(tk.Frame):
                 except sqlite3.Error as e:
                     messagebox.showerror('SQL error', f'Update Level {level} skill {_name}\n'
                                          f' failed with message\n{str(e)}')
-            
+
+    def _saveNotes(self, *args, force=False):
+        self._notes = self._notesFrame.data
+        #  If not forced, confirm the save
+        messagebox.showinfo('save notes', f'save notes\n{self._notes}')
+        
+    def _cancelNotes(self):
+        # if self._notesFrame.isdirty() - Ask for save first
+        if messagebox.askokcancel('Close Notes', 'Close Notes?\nUnsaved data will be lost'):
+            self._notesDialog.destroy()
+            self._notesDialog = None
+        
+    def _editNotes(self, *args):
+        if self._notesDialog:
+            self._notesDialog.lift()
+        else:
+            self._notes = []
+            try:
+                with open('notes.csv', newline='') as f:
+                    reader = csv.reader(f)
+                    self._notes = list(reader)
+            except FileNotFoundError:
+                pass
+            self._notesDialog = tk.Toplevel(self.parent, bg='#C9C9C9')
+            self._notesDialog.protocol('WM_DELETE_WINDOW', self._cancelNotes)
+            self._notesFrame = datadialogs.LocalDataFrame(self._notesDialog, data=self._notes, font=self._defaultFont,)
+            self._notesFrame.grid(row=0, column=0, columnspan=2, sticky='nsew')
+            self._notesDialog.rowconfigure(0, weight=1)
+            saveButton = tk.Button(self._notesDialog, text='Save', command=self._saveNotes, font=self._defaultFont)
+            saveButton.grid(row=1, column=0, sticky='e')
+            cancButton = tk.Button(self._notesDialog, text='Cancel', command=self._cancelNotes, font=self._defaultFont)
+            cancButton.grid(row=1, column=1, sticky='w')
+            self._notesDialog.columnconfigure(0, weight=1)
+            self._notesDialog.columnconfigure(1, weight=1)    
+            self._notesFrame._drawFrame(data=self._notes)
+         
+        messagebox.showinfo('In Note', f'Edit Notes: {len(self._notes)} lines\n{self._notes}')
+    
     def _levelUp(self):
         # Save current level and setup next level in database
         if messagebox.askyesno('Level Up', f'Save Level {self._curLevel} and Level Up?'):
@@ -431,6 +494,7 @@ class rootWindow(tk.Frame):
             self._drawFrame()
 
     def _saveDB(self, *args, force=False):
+        print(f"window size {self._width}x{self._height}")
         if force or messagebox.askyesno('Save', 'Commit all skill level changes?'):
             try:
                 with sqlite3.connect(self._dbName) as conn:
@@ -477,7 +541,7 @@ class rootWindow(tk.Frame):
         self._menu = tk.Menu(self.parent)
         self._setupFileMenu()
         self._filemenu.entryconfigure(2, state='disabled')  # Save menu on if valid
-        self._setupDataMenu()
+        self._setupEditMenu()
         self._menu.entryconfigure(3, state='disabled')
         self._setupIncMenu()
         self._menu.entryconfigure(3, state='disabled')
@@ -502,29 +566,46 @@ class rootWindow(tk.Frame):
 
     def _setupIncMenu(self):
         self._incMenu = tk.Menu(self._menu, tearoff=0)
-        self._menu.add_cascade(label='Increment', menu=self._incMenu, underline=0)
+        self._menu.add_cascade(label='Skill-Up', menu=self._incMenu, underline=5)
+        
+    def _incHotKey(self, event):
+        self._inc(self._incKeyIndex[event.char.upper()])
         
     def _fillIncMenu(self):
+        # Delete any exisiting items
         lastItem = self._incMenu.index(tk.END)
         if lastItem is not None:
             for i in range(lastItem + 1):
                 self._incMenu.delete("end")
+        self._incKeyIndex = {}
+        buttonLabels = []
+        # Insert the increment menu items
         for row in range(len(self._row2Underline)):
             skill = self._skilldesclist[row][0]
             underline = self._row2Underline[row]
             self._incMenu.add_command(label=skill, command=self._incCommands[row][0], underline=underline)
+            buttonLabels.append(['Inc', ])
+            if underline is not None:
+                print(f'{skill}, {underline}')
+                char = skill[underline]
+                buttonLabels[row][0] = char
+                self._incKeyIndex[char.upper()] = row
+                self.parent.bind(f'<Alt-KeyPress-{char.upper()}>', self._incHotKey)             
+                self.parent.bind(f'<Alt-KeyPress-{char.lower()}>', self._incHotKey)
+        return buttonLabels
 
-    def _setupDataMenu(self):
-        self._dataMenu = tk.Menu(self._menu, tearoff=0)
-        self._dataMenu.add_command(label="Level-Up", command=self._levelUp, underline=6)        
-        self._dataMenu.add_command(label="Refresh Data", command=self._refreshData, underline=0)        
-        self._dataMenu.add_separator()
-        self._dataMenu.add_command(label="Set Level", command=self._setLevel, underline=4)
-        self._dataMenu.add_command(label="Edit Level", command=self._editLevel, underline=0)
-        self._dataMenu.add_command(label="Major Skills", command=self._selectMajorSkills, underline=0)
-        self._dataMenu.add_separator()
-        self._dataMenu.add_command(label='SQL', command=self._showSQL, underline=0)
-        self._menu.add_cascade(label='Data', menu=self._dataMenu, underline=0)
+    def _setupEditMenu(self):
+        self._editMenu = tk.Menu(self._menu, tearoff=0)
+        self._editMenu.add_command(label="Level-Up", command=self._levelUp, underline=6)
+        self._editMenu.add_command(label='Edit Notes', command=self._editNotes, underline=5)        
+        self._editMenu.add_command(label="Refresh Data", command=self._refreshData, underline=0)        
+        self._editMenu.add_separator()
+        self._editMenu.add_command(label="Set Level", command=self._setLevel, underline=4)
+        self._editMenu.add_command(label="Edit Level", command=self._editLevel, underline=0)
+        self._editMenu.add_command(label="Major Skills", command=self._selectMajorSkills, underline=0)
+        self._editMenu.add_separator()
+        self._editMenu.add_command(label='SQL', command=self._showSQL, underline=0)
+        self._menu.add_cascade(label='Edit', menu=self._editMenu, underline=0)
            
     def _setupFileMenu(self):
         self._filemenu = tk.Menu(self._menu, tearoff=0)
@@ -543,30 +624,34 @@ class rootWindow(tk.Frame):
         self.parent.bind('<Control-KeyPress-q>', self._quit)
 
     def _checkMenu(self):
-        STATES = ['disabled', 'normal', ]
-        
+        STATES = ['disabled', 'normal', ]       
         dbValid = self._dbName is not None and os.path.isfile(self._dbName)
         dbDirty = dbValid and (sum(self._dirty) > 0)
-        levelUp = (dbValid and self._levelUp > 9)
+        levelUp = (dbValid and self._levelsInc > 9)
+        
+        self._filemenu.entryconfigure(2, state=STATES[int(dbDirty)])  # Save menu on if valid
+        self._menu.entryconfigure(2, state=STATES[dbValid])  # Level menu only if valid
+        self._menu.entryconfigure(3, state=STATES[dbValid])  # Inc menu online if dbValid
+        self._editMenu.entryconfigure(0, state=STATES[int(levelUp)])
+        
         if dbDirty:
             self.parent.bind('<Control-KeyPress-s>', self._saveDB)   
             self.parent.bind('<Control-KeyPress-S>', self._saveDB)
         else:
             self.parent.unbind('<Control-KeyPress-S>')
             self.parent.unbind('<Control-KeyPress-s>')
-        self._filemenu.entryconfigure(2, state=STATES[int(dbDirty)])  # Save menu on if valid
-        self._menu.entryconfigure(2, state=STATES[dbValid])  # Level menu only if valid
-        self._menu.entryconfigure(3, state=STATES[dbValid])
-
-        if dbValid:
-            self._dataMenu.entryconfigure(0, state=STATES[int(levelUp)])
-        
+                          
     def _quit(self, *args):
         if sum(self._dirty) > 0:
             if messagebox.askyesno('Save Changes', 'Save Changes to Database before exit?'):
                 self._saveDB(force=True)
         if messagebox.askokcancel('Quit', 'Exit: Are you sure?'):
             self.main.destroy()
+
+    def _on_window_resize(self, event):
+        self._width = event.width
+        self._height = event.height
+        # print(f"Window resized to {width}x{height}")
 
 
 def main():

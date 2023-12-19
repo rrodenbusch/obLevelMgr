@@ -21,6 +21,7 @@
           class VARCHAR(7),
           major INT DEFAULT 0,
           underline INT DEFAULT 0,
+          sortorder in default 0,
           FOREIGN KEY(ATTRID) REFERENCES obAttributes(ROWID)
           );
     CREATE TABLE IF NOT EXISTS obStats (
@@ -38,7 +39,9 @@
         a.name as Skill,
         a.desc as SkillDesc,
         a.major as MajorSkill,
+        a.sortorder as SortOrder,
         a.underline as Underline,
+        a.sortorder as SortOrder,
         b.name as Attr,
         b.desc as AttrDesc
         FROM obSkills a
@@ -50,6 +53,7 @@
         a.curvalue - a.prevalue as Increase,
         b.name as Skill,
         b.major as MajorSkill,
+        b.sortorder as SortOrder,
         b.desc as SkillDesc,
         b.class as SkillGroup,
         c.name as Attr,

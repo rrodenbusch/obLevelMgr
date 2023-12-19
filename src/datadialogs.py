@@ -309,6 +309,7 @@ class LocalDialog():
 
     def __init__(self, parent=None, **kw):
         self.parent = parent
+        self._font = kw.get('font')
         self._dtype = kw.get('dtype', 'str')
         
     def _drawframe(self, title='LocalDialog', **kw):
@@ -429,12 +430,13 @@ class LocalEntryFrame(tk.Frame):
     
     """
 
-    def __init__(self, parent=None, cnf:dict={}, shape=(1, 1), 
+    def __init__(self, parent=None, cnf:dict={}, shape=(1, 1),
                  data:list=None, rowbg:list=[], anchor:str='w', widths=None, default=None, **kw):
         if parent is None: parent = tk.Tk()
         # self.master = parent
         tk.Frame.__init__(self, parent)
         self._editable = ('editable' in kw) or ('editcols' in kw) or ('editrows' in kw)
+        self._font = kw.get('font')
         if self._editable:
             editable = kw.get('editable', [])
             editrows = kw.get('editrows', [])
@@ -462,14 +464,14 @@ class LocalEntryFrame(tk.Frame):
                         justify = 'left'
                     else:
                         justify = 'center'
-                    self._fields[row][col] = tk.Entry(self, justify=justify, 
+                    self._fields[row][col] = tk.Entry(self, justify=justify, font=self._font,
                                                           bg=_getValue(rowbg, row=row, default='white'))
                     if width:
                         self._fields[row][col]['width'] = width
                         
                     self._fields[row][col].insert(0, _getValue(data, row=row, col=col, default=''))
                 else: 
-                    self._fields[row][col] = tk.Label(self, anchor=anchor, pady=1,
+                    self._fields[row][col] = tk.Label(self, anchor=anchor, pady=1, font=self._font,
                                                       bg=_getValue(rowbg, row=row, default='white'),
                                                       text=_getValue(data, row=row, col=col, default=''))
                 self._fields[row][col].grid(row=row, column=col, sticky='nsew', padx=1, pady=1)
@@ -567,6 +569,7 @@ class LocalEntryDialog():
         self._title = title
         self.parent = parent
         self._cnf = kw.get('cnf', {})
+        self._font = kw.get('font')
         self._response = None
         
     def _drawDialog(self, **kw):
@@ -578,11 +581,12 @@ class LocalEntryDialog():
             self._popup.title(self._title)
         if 'parent' in kw:
             del kw['parent']
+        font = kw.get('font',self._font)
         self._entryFrame = LocalEntryFrame(parent=self._popup, **kw)
         self._entryFrame.grid(row=0, column=0, columnspan=2, sticky='nsew')
-        self._okButton = tk.Button(self._popup, text='Save', command=self._okPress)
+        self._okButton = tk.Button(self._popup, text='Save', command=self._okPress, font=font)
         self._okButton.grid(row=1, column=0, sticky='e')
-        self._cancButton = tk.Button(self._popup, text='Cancel', command=self._cancelPress)
+        self._cancButton = tk.Button(self._popup, text='Cancel', command=self._cancelPress, font=font)
         self._cancButton.grid(row=1, column=1, sticky='w')
         self._popup.rowconfigure(0, weight=1)
         self._popup.columnconfigure(0, weight=1)
@@ -725,11 +729,12 @@ class LocalButtonFrame(tk.Frame):
         
     """
 
-    def __init__(self, parent=None, cnf=None, shape=(1, 1), commands:list=[], data=[], rowbg=[]):
+    def __init__(self, parent=None, cnf=None, shape=(1, 1), commands:list=[], data=[], rowbg=[], font=None):
         if parent is None: parent = tk.Tk()
         self.master = parent
         self._buttons = [[None for i in range(shape[1])] for j in range(shape[0])]
         self._shape = (nrows, ncols) = shape
+        self._font = font
         
         self._commands = commands
         self._rowbg = rowbg
@@ -739,10 +744,11 @@ class LocalButtonFrame(tk.Frame):
         if cnf is not None: self.configure(cnf)
         for row in range(nrows):
             for col in range(ncols):
-                self._buttons[row][col] = tk.Button(self,
+                self._buttons[row][col] = tk.Button(self, underline=row,
                                                     text=_getValue(self._data, row=row, col=col, default=''),
                                                     bg=_getValue(self._rowbg, row=row, default='white'),
-                                                    command=_getValue(self._commands, row=row, col=col))
+                                                    command=_getValue(self._commands, row=row, col=col),
+                                                    font=font)
                 self._buttons[row][col].grid(row=row, column=col, sticky='nsew', padx=1, pady=1)
                 self.grid(row=row, column=col, sticky='nsew')
         for row in range(nrows):
