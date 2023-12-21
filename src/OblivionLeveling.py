@@ -129,6 +129,7 @@ class rootWindow(tk.Frame):
         
     def _getConfig(self):
         self._config = configparser.ConfigParser()
+        self._config.optionxform = str
         self._environ = dict(os.environ)
         self._homeDir = self._environ.get('HOME', self._environ.get('HOMEPATH', ''))
         self._cfgFile = f"{self._homeDir}/.oblevel.ini"
@@ -140,8 +141,12 @@ class rootWindow(tk.Frame):
             else:
                 if os.path.isfile(f"{os.getcwd()}/oblevel.ini"):
                     self._config.read(f"{os.getcwd()}/oblevel.ini")
-                if self._config.has_option('default', 'fontSize'):
-                    self._defaultFont.configure(size=self._config.get('default', 'fontSize'))
+            if self._config.has_option('default', 'fontSize'):
+                self._defaultFont.configure(size=self._config.get('default', 'fontSize'))
+            if self._config.has_option('default', 'fontWeight'):
+                self._defaultFont.configure(weight=self._config.get('default', 'fontWeight'))
+            if self._config.has_option('default', 'fontName'):
+                self._defaultFont.configure(family=self._config.get('default', 'fontName'))
         except configparser.Error as e:
             messagebox.showerror('Config Error', f'Configuration File Error\n{e}')
         self._width = self._config.get('main', 'width', fallback='1860')   
@@ -407,12 +412,16 @@ class rootWindow(tk.Frame):
                                  f' failed with message\n{str(e)}')
                 
     def _getLevel(self, level, create=True):
+        selectSQL = 'select skill, curValue from statsMap where level = ? order by Majorskill DESC, Sortorder ASC'
         try:
             with sqlite3.connect(self._dbName) as conn:
-                cursor = conn.execute('select skill, curValue from statsMap where level = ?', (level,))
+                cursor = conn.execute(selectSQL, (level,))
                 levels = cursor.fetchall()
                 if create and len(levels) < 21:
                     levels = self._insertLevel(level)
+                    cursor = conn.execute(selectSQL, (level,))
+                    levels = cursor.fetchall()
+                    
             return levels
         
         except sqlite3.Error as e:
@@ -429,6 +438,8 @@ class rootWindow(tk.Frame):
                     levels = cursor.fetchall()
                     if len(levels) == 21:
                         self._curLevel = level
+                        self._initDataSets()
+                        self._checkMenu()
                         self._drawFrame()
                     else:
                         messagebox.showerror('Level Not Found', f'Level {level} not found.')

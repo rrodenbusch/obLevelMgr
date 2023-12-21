@@ -177,6 +177,10 @@ class SideBySideDialog():
             self._moveleftbutton.grid(row=1, column=1, sticky='n',) 
             self._savebutton = tk.Button(self._popup, text='Save', command=self._save, underline=0)
             self._cancelbutton = tk.Button(self._popup, text='Cancel', command=self._cancel, underline=0)
+            self._popup.bind('<Alt-KeyPress-S>', self._save)
+            self._popup.bind('<Alt-KeyPress-s>', self._save)
+            self._popup.bind('<Alt-KeyPress-C>', self._cancel)
+            self._popup.bind('<Alt-KeyPress-c>', self._cancel)
             self._savebutton.grid(row=2, column=0)
             self._cancelbutton.grid(row=2, column=2)
             self._rightlist = tk.Listbox(self._popup, selectmode=tk.SINGLE) 
@@ -349,10 +353,10 @@ class LocalDialog():
         self._popup.columnconfigure(1, weight=1)
         # Bind hot keys and window close events
         self._popup.protocol("WM_DELETE_WINDOW", self._cancelPress)
-        self._popup.bind('<KeyPress-o>', self._okPress)
-        self._popup.bind('<KeyPress-O>', self._okPress)
-        self._popup.bind('<KeyPress-c>', self._cancelPress)
-        self._popup.bind('<KeyPress-C>', self._cancelPress)
+        self._popup.bind('<Alt-KeyPress-o>', self._okPress)
+        self._popup.bind('<Alt-KeyPress-O>', self._okPress)
+        self._popup.bind('<Alt-KeyPress-c>', self._cancelPress)
+        self._popup.bind('<Alt-KeyPress-C>', self._cancelPress)
         # Make dialog a modal dialog and center it in the parent window
         self._popup.takefocus = True
         self._popup.grab_set()
@@ -607,6 +611,10 @@ class LocalEntryDialog():
         self._okButton.grid(row=1, column=0, sticky='e')
         self._cancButton = tk.Button(self._popup, text='Cancel', command=self._cancelPress, font=font, underline=0)
         self._cancButton.grid(row=1, column=1, sticky='w')
+        self._popup.bind('<Alt-KeyPress-s>', self._okPress)
+        self._popup.bind('<Alt-KeyPress-S>', self._okPress)
+        self._popup.bind('<Alt-KeyPress-c>', self._cancelPress)
+        self._popup.bind('<Alt-KeyPress-C>', self._cancelPress)
         self._popup.rowconfigure(0, weight=1)
         self._popup.columnconfigure(0, weight=1)
         self._popup.columnconfigure(1, weight=1)        
@@ -616,13 +624,13 @@ class LocalEntryDialog():
         _place_window(self._popup, self.parent)
         return self._popup
          
-    def _okPress(self):
+    def _okPress(self, *args):
         self._response = True
         self._data = self._entryFrame.data
         self._popup.destroy()
         self._popup = None
             
-    def _cancelPress(self):
+    def _cancelPress(self, *args):
         if messagebox.askokcancel('Cancel Edit', 'Cancel edits?'):
             self._response = False
             self._popup.destroy()
