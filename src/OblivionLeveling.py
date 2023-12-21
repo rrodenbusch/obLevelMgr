@@ -15,6 +15,7 @@
 import os
 import csv
 import sqlite3
+import configparser
 
 import pyautogui
 import argparse
@@ -85,23 +86,23 @@ class rootWindow(tk.Frame):
         self._dbName = None
         self._selectList = None
         self._notesDialog = None
-        (self._width, self._height) = (1860, 1175)
         self._dirty = [ 0 ]
         self._levelsInc = 0
         self._filetypes = (('DB files', '*.db'), ('All files', '*.*'))
+        
         self._incCommands = [[lambda: self._inc(0)], [lambda: self._inc(1)], [lambda: self._inc(2)], [lambda: self._inc(3)], [lambda: self._inc(4)],
             [lambda: self._inc(5)], [lambda: self._inc(6)], [lambda: self._inc(7)], [lambda: self._inc(8)], [lambda: self._inc(9)],
             [lambda: self._inc(10)], [lambda: self._inc(11)], [lambda: self._inc(12)], [lambda: self._inc(13)], [lambda: self._inc(14)],
             [lambda: self._inc(15)], [lambda: self._inc(16)], [lambda: self._inc(17)], [lambda: self._inc(18)], [lambda: self._inc(19)],
             [lambda: self._inc(20)], ]
+        self._recentCommands = [lambda: self._openRecent(0), lambda: self._openRecent(1), lambda: self._openRecent(2),
+                                lambda: self._openRecent(3), lambda: self._openRecent(4), lambda: self._openRecent(5),
+                                lambda: self._openRecent(6), lambda: self._openRecent(7), lambda: self._openRecent(8),
+                                lambda: self._openRecent(9), ]
         self._incButtonHotkeys = []
-
         if parent is None: parent = tk.Tk()
-        self._defaultFont = tk.font.nametofont("TkDefaultFont") 
-        self._defaultFont.configure(size=18,)
-                                   # weight=font.BOLD ) 
-        
-        self._defaultFont = tk.font.Font(size=16,)
+        self._config = self._getConfig()
+
         self.parent = parent
         tk.Frame.__init__(self)
         self.main = self.master
@@ -119,6 +120,39 @@ class rootWindow(tk.Frame):
         self._setupMenu()
         self._drawFrame()
         
+    def _saveConfig(self):
+        if not self._config.has_section('RecentFiles'):
+            self._config.add_section('RecentFiles')
+        self._config.set('RecentFiles', 'files', "\n".join(self._recentList))
+        with open(self._cfgFile, 'w') as f:
+            self._config.write(f)
+        
+    def _getConfig(self):
+        self._config = configparser.ConfigParser()
+        self._environ = dict(os.environ)
+        self._homeDir = self._environ.get('HOME', self._environ.get('HOMEPATH', ''))
+        self._cfgFile = f"{self._homeDir}/.oblevel.ini"
+        self._tkDefaultFont = tk.font.nametofont("TkDefaultFont")
+        self._defaultFont = tk.font.Font()
+        try:
+            if os.path.isfile(self._cfgFile):
+                self._config.read(self._cfgFile)
+            else:
+                if os.path.isfile(f"{os.getcwd()}/oblevel.ini"):
+                    self._config.read(f"{os.getcwd()}/oblevel.ini")
+                if self._config.has_option('default', 'fontSize'):
+                    self._defaultFont.configure(size=self._config.get('default', 'fontSize'))
+        except configparser.Error as e:
+            messagebox.showerror('Config Error', f'Configuration File Error\n{e}')
+        self._width = self._config.get('main', 'width', fallback='1860')   
+        self._height = self._config.get('main', 'height', fallback='1175')   
+        self._recentFiles = self._config.get('RecentFiles', 'files', fallback='')
+        self._recentList = self._recentFiles.split('\n')
+        while '' in self._recentList:
+            self._recentList.remove('')
+         
+        return self._config
+
     def _drawFrame(self):
         if self._dbName is not None and os.path.isfile(self._dbName):
             # Some colors and default configurations
@@ -287,8 +321,8 @@ class rootWindow(tk.Frame):
             self._dirty[x] = 1
             if x < self._majorSkillCnt:
                 self._levelsInc += 1
-                if self._levelsInc > 9:
-                    self._checkMenu()
+            self._checkMenu()
+            self._drawFrame()
         
     def _getDataList(self, sql, params=None):
         if self._dbName is not None and os.path.isfile(self._dbName): 
@@ -325,12 +359,22 @@ class rootWindow(tk.Frame):
             self._fillIncMenu()
             self._drawFrame()
         
+    def _openRecent(self, idx):
+        filename = self._recentList[idx]
+        if filename and len(filename):
+            if os.path.isfile(filename):
+                (fpath, fname) = os.path.split(filename)
+                self._setDB(filename)
+                self._setupRecentMenu(filename=filename)
+                self._checkMenu()
+        
     def _openDB(self, *args):
         filename = fd.askopenfilename(parent=self.parent, title='Open Database', filetypes=self._filetypes)
         if filename and len(filename):
             if os.path.isfile(filename):
                 (fpath, fname) = os.path.split(filename)
                 self._setDB(filename)
+                self._setupRecentMenu(filename=filename)
                 self._checkMenu()
             else:
                 messagebox.showerror(title='Open File', message=f'{filename} does not exist')
@@ -394,13 +438,13 @@ class rootWindow(tk.Frame):
         
     def _editLevel(self):
         level = datadialogs.askinteger('Level to Edit', 'Enter the Level to Edit', parent=self.parent,
-                                       default=self._curLevel)
+                                       default=self._curLevel, font=self._defaultFont)
         if level is not None:
             if sum(self._dirty):
                 if messagebox.askyesno('Save Changes', 'Save Changes? Unsaved changes will be lost.'):
                     self._saveDB(force=True)
-            levels = self._getLevel(level)          
-            myEntry = datadialogs.LocalEntryDialog(self.parent, cnf={'bg':'#D3B683'})
+            levels = self._getLevel(level)
+            myEntry = datadialogs.LocalEntryDialog(self.parent, cnf={'bg':'#D3B683'}, font=self._defaultFont)
             if myEntry.show(data=levels, editcols=[1, 2, ], cnf={ 'bd':1, 'relief':'flat', 'bg':'#D3B683', }):
                 try:
                     newStats = myEntry.data
@@ -494,7 +538,6 @@ class rootWindow(tk.Frame):
             self._drawFrame()
 
     def _saveDB(self, *args, force=False):
-        print(f"window size {self._width}x{self._height}")
         if force or messagebox.askyesno('Save', 'Commit all skill level changes?'):
             try:
                 with sqlite3.connect(self._dbName) as conn:
@@ -540,7 +583,7 @@ class rootWindow(tk.Frame):
     def _setupMenu(self):
         self._menu = tk.Menu(self.parent)
         self._setupFileMenu()
-        self._filemenu.entryconfigure(2, state='disabled')  # Save menu on if valid
+        self._fileMenu.entryconfigure(2, state='disabled')  # Save menu on if valid
         self._setupEditMenu()
         self._menu.entryconfigure(3, state='disabled')
         self._setupIncMenu()
@@ -570,13 +613,16 @@ class rootWindow(tk.Frame):
         
     def _incHotKey(self, event):
         self._inc(self._incKeyIndex[event.char.upper()])
+
+    def _clearMenu(self, menu):
+        lastItem = menu.index(tk.END)
+        if lastItem is not None:
+            for i in range(lastItem + 1):
+                menu.delete("end")
         
     def _fillIncMenu(self):
         # Delete any exisiting items
-        lastItem = self._incMenu.index(tk.END)
-        if lastItem is not None:
-            for i in range(lastItem + 1):
-                self._incMenu.delete("end")
+        self._clearMenu(self._incMenu)
         self._incKeyIndex = {}
         buttonLabels = []
         # Insert the increment menu items
@@ -586,7 +632,6 @@ class rootWindow(tk.Frame):
             self._incMenu.add_command(label=skill, command=self._incCommands[row][0], underline=underline)
             buttonLabels.append(['Inc', ])
             if underline is not None:
-                print(f'{skill}, {underline}')
                 char = skill[underline]
                 buttonLabels[row][0] = char
                 self._incKeyIndex[char.upper()] = row
@@ -606,40 +651,74 @@ class rootWindow(tk.Frame):
         self._editMenu.add_separator()
         self._editMenu.add_command(label='SQL', command=self._showSQL, underline=0)
         self._menu.add_cascade(label='Edit', menu=self._editMenu, underline=0)
+        
+    def _setupRecentMenu(self, filename=None):
+        if filename in self._recentList:
+            self._recentList.remove(filename)
+        if filename:
+            self._recentList.insert(0, filename)
+            self._recentList = self._recentList[0:11]
+        self._clearMenu(self._recentMenu)
+        if len(self._recentList):
+            for idx, filename in zip(range(len(self._recentList)), self._recentList):
+                (fpath, fname) = os.path.split(filename)
+                self._recentMenu.add_command(label=f'{idx}: {fname}', underline=0, command=self._recentCommands[idx])
+        self._saveConfig()
            
     def _setupFileMenu(self):
-        self._filemenu = tk.Menu(self._menu, tearoff=0)
-        self._filemenu.add_command(label="New", command=self._newDB, accelerator='Ctrl-N', underline=0)
-        self._filemenu.add_command(label="Open", command=self._openDB, accelerator='Ctrl-O', underline=0)
-        self._filemenu.add_command(label="Save", command=self._saveDB, accelerator='Ctrl-S', underline=0)
-        self._filemenu.add_separator()
+        self._fileMenu = tk.Menu(self._menu, tearoff=0)
+        self._fileMenu.add_command(label="New", command=self._newDB, accelerator='Ctrl-N', underline=0)
+        self._fileMenu.add_command(label="Open", command=self._openDB, accelerator='Ctrl-O', underline=0)
+        self._fileMenu.add_command(label="Save", command=self._saveDB, accelerator='Ctrl-S', underline=0)
+        self._recentMenu = tk.Menu(self._fileMenu, tearoff=0)
+        self._fileMenu.add_cascade(label="Recent..", menu=self._recentMenu, underline=0)
+        if len(self._recentList):
+            self._setupRecentMenu()
+            self._fileMenu.entryconfigure(3, state='normal')
+        else:
+            self._fileMenu.entryconfigure(3, state='disabled')
+        self._fileMenu.add_separator()
 
-        self._filemenu.add_command(label='Quit', command=self._quit, accelerator='Ctrl-Q', underline=0)
-        self._menu.add_cascade(label='File', menu=self._filemenu, underline=0)
-        self.parent.bind('<Control-KeyPress-N>', self._newDB)
-        self.parent.bind('<Control-KeyPress-O>', self._openDB)
-        self.parent.bind('<Control-KeyPress-Q>', self._quit)
-        self.parent.bind('<Control-KeyPress-n>', self._newDB)
-        self.parent.bind('<Control-KeyPress-o>', self._openDB)
-        self.parent.bind('<Control-KeyPress-q>', self._quit)
+        self._fileMenu.add_command(label='Quit', command=self._quit, accelerator='Ctrl-Q', underline=0)
+        self._menu.add_cascade(label='File', menu=self._fileMenu, underline=0)
+        self._bindHotkeys(self.parent, ['N', 'n', 'O', 'o', 'Q', 'q', ])
+        
+    def _bindHotkeys(self, parent, keys):
+        for char in keys:
+            self.parent.bind(f'<Control-KeyPress-{char}>', self._hotkeyHandler)
+    
+    def _unbindHotkeys(self, parent, keys):
+        for char in [keys]: 
+            self.parent.unbind(f'<Control-KeyPress-{char}>')
+
+    def _hotkeyHandler(self, event):
+        match event.keysym.upper():
+            case 'N':
+                self._newDB()
+            case 'O':
+                self._openDB()
+            case 'Q':
+                self._quit()
+            case _:
+                messagebox.showwarning('Unknown Hot Key', f'Unknown hotkey {event.keysym}')
 
     def _checkMenu(self):
         STATES = ['disabled', 'normal', ]       
         dbValid = self._dbName is not None and os.path.isfile(self._dbName)
         dbDirty = dbValid and (sum(self._dirty) > 0)
         levelUp = (dbValid and self._levelsInc > 9)
+        hasRecent = len(self._recentList) > 0
         
-        self._filemenu.entryconfigure(2, state=STATES[int(dbDirty)])  # Save menu on if valid
+        self._fileMenu.entryconfigure(2, state=STATES[int(dbDirty)])  # Save menu on if valid
+        self._fileMenu.entryconfigure(3, state=STATES[int(hasRecent)])  # Recent menu on if valid
         self._menu.entryconfigure(2, state=STATES[dbValid])  # Level menu only if valid
         self._menu.entryconfigure(3, state=STATES[dbValid])  # Inc menu online if dbValid
         self._editMenu.entryconfigure(0, state=STATES[int(levelUp)])
         
         if dbDirty:
-            self.parent.bind('<Control-KeyPress-s>', self._saveDB)   
-            self.parent.bind('<Control-KeyPress-S>', self._saveDB)
+            self._bindHotkeys(self.parent, ['S', 's'])
         else:
-            self.parent.unbind('<Control-KeyPress-S>')
-            self.parent.unbind('<Control-KeyPress-s>')
+            self._unbindHotkeys(self.parent, ['S', 's'])
                           
     def _quit(self, *args):
         if sum(self._dirty) > 0:
@@ -659,9 +738,9 @@ def main():
     logger = logging.getLogger('obLeveling')
     logger.debug('Begin main()')
     args = get_args()
+    
     if args.verbose:
         logger.setLevel(logging.INFO)
-    # config = get_config()
     mainWindow = rootWindow(title=f'Level Manager: {args.database}', dbname=args.database,
                             cnf={})
     if args.new:

@@ -175,8 +175,8 @@ class SideBySideDialog():
             self._moverightbutton.grid(row=0, column=1, sticky='s',)
             self._moveleftbutton = tk.Button(self._popup, text="<<<", command=self._moveleft)
             self._moveleftbutton.grid(row=1, column=1, sticky='n',) 
-            self._savebutton = tk.Button(self._popup, text='Save', command=self._save)
-            self._cancelbutton = tk.Button(self._popup, text='Cancel', command=self._cancel)
+            self._savebutton = tk.Button(self._popup, text='Save', command=self._save, underline=0)
+            self._cancelbutton = tk.Button(self._popup, text='Cancel', command=self._cancel, underline=0)
             self._savebutton.grid(row=2, column=0)
             self._cancelbutton.grid(row=2, column=2)
             self._rightlist = tk.Listbox(self._popup, selectmode=tk.SINGLE) 
@@ -313,34 +313,53 @@ class LocalDialog():
         self._dtype = kw.get('dtype', 'str')
         
     def _drawframe(self, title='LocalDialog', **kw):
+        """ Draw the input dialog with OK and Cancel buttons
+        
+            Args: 
+                title: title of the popup
+                text: text of the dialog box
+                dtype: data type
+                width: width of the entry dialog, default=40
+                buttons: optional list of button text, default is OK, Cancel
+                underlines: optional list of button letter to underline
+            Grid layout dialog.
+                row0 is text Label 
+                row1 is the Entry field
+                row2 are 2 buttons centered in window (columns 0 and 1)
+        """
+                
         self._popup = tk.Toplevel(self.parent)
         self._popup.title(title)
         self._dtype = kw.get('dtype', self._dtype)
         width = kw.get('width', 40)
         self._entry = tk.Entry(self._popup, width=width,)
+        self._entry.focus_set()
         if 'default' in kw:
             self._entry.insert(0, kw['default'])
-        curRow = 0
-        if 'text' in kw:
-            label = tk.Label(self._popup, text=kw['text'], anchor='n')
-            label.grid(row=0, column=0, columnspan=2, sticky='ew')
-            curRow += 1        
-        self._entry.grid(row=curRow, column=0, columnspan=2, sticky='ew')
-        self._okButton = tk.Button(self._popup, text='OK', command=self._okPress)
-        self._okButton.grid(row=curRow + 1, column=0, sticky='e', padx=5, pady=5)
-        self._cancelButton = tk.Button(self._popup, text='Cancel', command=self._cancelPress)
-        self._cancelButton.grid(row=curRow + 1, column=1, sticky='w', padx=5, pady=5)
-        self._popup.rowconfigure(curRow, weight=1)
-        self._popup.rowconfigure(curRow + 1, weight=0)
+        label = tk.Label(self._popup, text=kw.get('text', ''), anchor='n')
+        label.grid(row=0, column=0, columnspan=2, sticky='ew')
+        self._entry.grid(row=1, column=0, columnspan=2, sticky='ew')
+        self._okButton = tk.Button(self._popup, text='OK', command=self._okPress, underline=0)
+        self._okButton.grid(row=2, column=0, sticky='e', padx=5, pady=5)
+        self._cancelButton = tk.Button(self._popup, text='Cancel', command=self._cancelPress, underline=0)
+        self._cancelButton.grid(row=2, column=1, sticky='w', padx=5, pady=5)
+        self._popup.rowconfigure(1, weight=1)
+        self._popup.rowconfigure(2, weight=0)
         self._popup.columnconfigure(0, weight=1)
         self._popup.columnconfigure(1, weight=1)
+        # Bind hot keys and window close events
         self._popup.protocol("WM_DELETE_WINDOW", self._cancelPress)
+        self._popup.bind('<KeyPress-o>', self._okPress)
+        self._popup.bind('<KeyPress-O>', self._okPress)
+        self._popup.bind('<KeyPress-c>', self._cancelPress)
+        self._popup.bind('<KeyPress-C>', self._cancelPress)
+        # Make dialog a modal dialog and center it in the parent window
         self._popup.takefocus = True
         self._popup.grab_set()
         _place_window(self._popup, self.parent)
         return self._popup
         
-    def _okPress(self):
+    def _okPress(self, *args):
         _validator = {'integer':int, 'flaot': float, 'complex':complex}
         valid = _validator.get(self._dtype, str)
         try:
@@ -354,7 +373,7 @@ class LocalDialog():
         except ValueError as e:
             messagebox.showerror('ValueError', f'{self._entry.get()} is not {self._dtype}. Try Again')
 
-    def _cancelPress(self):
+    def _cancelPress(self, *args):
         self._resp = None
         self._popup.destroy()
             
@@ -456,7 +475,7 @@ class LocalEntryFrame(tk.Frame):
         self.configure(cnf)
         for row in range(nrows):
             for col in range(ncols):
-                width = _getValue(widths,col=col,default=None)
+                width = _getValue(widths, col=col, default=None)
                 if (self._editable and
                      ((row in editrows) or (col in editcols) or _getValue(editable, row=row, col=col, default=False))):
                     curValue = _getValue(data, row=row, col=col, default='')
@@ -581,12 +600,12 @@ class LocalEntryDialog():
             self._popup.title(self._title)
         if 'parent' in kw:
             del kw['parent']
-        font = kw.get('font',self._font)
+        font = kw.get('font', self._font)
         self._entryFrame = LocalEntryFrame(parent=self._popup, **kw)
         self._entryFrame.grid(row=0, column=0, columnspan=2, sticky='nsew')
-        self._okButton = tk.Button(self._popup, text='Save', command=self._okPress, font=font)
+        self._okButton = tk.Button(self._popup, text='Save', command=self._okPress, font=font, underline=0)
         self._okButton.grid(row=1, column=0, sticky='e')
-        self._cancButton = tk.Button(self._popup, text='Cancel', command=self._cancelPress, font=font)
+        self._cancButton = tk.Button(self._popup, text='Cancel', command=self._cancelPress, font=font, underline=0)
         self._cancButton.grid(row=1, column=1, sticky='w')
         self._popup.rowconfigure(0, weight=1)
         self._popup.columnconfigure(0, weight=1)
