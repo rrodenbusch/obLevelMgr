@@ -16,30 +16,13 @@ The Elders Scrolls IV, [Oblivion](https://en.uesp.net/wiki/Oblivion:Oblivion), h
 
 [![AGPL License](https://www.gnu.org/graphics/agplv3-155x51.png)](http://www.gnu.org/licenses/agpl-3.0#license-text)&nbsp;&nbsp;[GNU Affero General Public License](https://www.gnu.org/licenses/agpl-3.0#license-text)
 
-
-## Build
-
-To build this project run
-
-```bash
-  python3 -m build --wheel
-```
-
-
-## Installation
-
-Install the new build (0.1.0) with pip
-
-```bash
-  pip install ./dist/obleveltracker-0.1.0-py3-none-any.whl
-```
     
 ## Screenshots
 
 ![CoverArt](https://images.uesp.net/6/64/OB-cover-Oblivion_Collector%27s_Edition_Box_Art.jpg)
 
 
-## Run Locally
+## Build Locally
 
 Clone the project
 
@@ -52,11 +35,17 @@ Go to the project directory
 ```bash
   cd obleveltracker
 ```
-
-Install Application
+Build the wheel file
 
 ```bash
-  pip install obleveltracker.whl
+  python3 -m build --wheel
+```
+## Installation
+
+Install the new build (0.1.0) with pip
+
+```bash
+  pip install ./dist/obleveltracker-0.1.0-py3-none-any.whl
 ```
 
 Start the Application
