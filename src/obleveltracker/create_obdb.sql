@@ -19,9 +19,9 @@
           name VARCHAR(20),
           desc VARCHAR(128),
           class VARCHAR(7),
-          major INT DEFAULT 0,
-          underline INT DEFAULT 0,
-          sortorder in default 0,
+          major INTEGER DEFAULT 0,
+          underline INTEGER DEFAULT 0,
+          sortorder INTEGER default 0,
           FOREIGN KEY(ATTRID) REFERENCES obAttributes(ROWID)
           );
     CREATE TABLE IF NOT EXISTS obStats (
@@ -71,7 +71,3 @@
         b.desc
         from obAttrs a
         LEFT JOIN obAttributes b on a.ATTRID = b.ROWID;
-        a.desc as AttrDesc,
-        a.level,
-        
-        a.

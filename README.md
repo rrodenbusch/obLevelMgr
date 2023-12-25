@@ -17,41 +17,26 @@ The Elders Scrolls IV, [Oblivion](https://en.uesp.net/wiki/Oblivion:Oblivion), h
 [![AGPL License](https://www.gnu.org/graphics/agplv3-155x51.png)](http://www.gnu.org/licenses/agpl-3.0#license-text)&nbsp;&nbsp;[GNU Affero General Public License](https://www.gnu.org/licenses/agpl-3.0#license-text)
 
 
-## Deployment
+## Build
 
-To deploy this project run
+To build this project run
 
 ```bash
-  npm run deploy
+  python3 -m build --wheel
 ```
 
 
 ## Installation
 
-Install my-project with npm
+Install the new build (0.1.0) with pip
 
 ```bash
-  npm install my-project
-  cd my-project
+  pip install ./dist/obleveltracker-0.1.0-py3-none-any.whl
 ```
     
-## Usage/Examples
-
-```javascript
-import Component from 'my-project'
-
-function App() {
-  return <Component />
-}
-```
-
-
 ## Screenshots
 
 ![CoverArt](https://images.uesp.net/6/64/OB-cover-Oblivion_Collector%27s_Edition_Box_Art.jpg)
-
-
-![Logo](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/th5xamgrr6se0x5ro4g6.png)
 
 
 ## Run Locally
@@ -59,37 +44,37 @@ function App() {
 Clone the project
 
 ```bash
-  git clone https://link-to-project
+  git clone https://github.com/rrodenbusch/obleveltracker.git
 ```
 
 Go to the project directory
 
 ```bash
-  cd my-project
+  cd obleveltracker
 ```
 
-Install dependencies
+Install Application
 
 ```bash
-  npm install
+  pip install obleveltracker.whl
 ```
 
-Start the server
+Start the Application
 
 ```bash
-  npm run start
+obLevelTracker
 ```
 
 ## 🔗 Links
 
-[![linkedin](https://img.shields.io/badge/linkedin-0A66C2)](https://www.linkedin.com/in/rrodenbusch)
-
 [Oblivion Wiki](https://en.uesp.net/wiki/Oblivion:Oblivion)
+
+[Source Repo](https://github.com/rrodenbusch/obleveltracker.git)
+
+[![linkedin](https://img.shields.io/badge/linkedin-0A66C2)](https://www.linkedin.com/in/rrodenbusch)
 
 
 
 ## 🛠 Skills
 Python
-
-
 

@@ -12,3 +12,14 @@
 
 # pylint: disable=bad-docstring-quotes,invalid-name
 __version__="0.1.0"
+
+import tkinter as tk
+
+from .datadialogs import (LocalDataFrame,
+                          LocalButtonFrame,
+                          LocalTableDialog,
+                          SideBySideDialog,
+                          LocalEntryFrame,
+                          LocalEntryDialog,
+                          askinteger,
+                          askstring,)

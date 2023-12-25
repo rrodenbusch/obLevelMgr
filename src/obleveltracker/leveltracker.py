@@ -23,12 +23,14 @@ import pandas as pd
 import tkinter as tk
 
 from tkinter import messagebox, filedialog as fd
-import datadialogs
-from datadialogs import (LocalDataFrame,
-                         LocalButtonFrame,
-                         LocalTableFrame,
-                         SideBySideDialog,
-                         LocalEntryFrame,)
+from obleveltracker.datadialogs import (LocalDataFrame,
+                                        LocalButtonFrame,
+                                        SideBySideDialog,
+                                        LocalTableDialog,
+                                        LocalEntryDialog,
+                                        LocalEntryFrame,
+                                        askinteger,
+                                        askstring,)
 
 
 def get_args():
@@ -78,7 +80,7 @@ class rootWindow(tk.Frame):
         tk.Frame cover the parent Window
     """
 
-    def __init__(self, parent=None, title='obTable', dbname=None, cnf={}):
+    def __init__(self, parent=None, title='obTable', dbname=None, ):
         self._skillmapdf = None
         self._skillsmap = None
         self._curLevel = None
@@ -162,13 +164,12 @@ class rootWindow(tk.Frame):
             # Some colors and default configurations
             desccnf = skillcnf = { 'bd':1, 'relief':'flat', 'bg':'#D3B683', }
 
-            skilldesc = (21, 4)
             skillshape = (21, 1)
             attrshape = (7, 1)
             attrdesc = (7, 3)
             
             if len(self._majorList) > 0:
-                rowbg = ['#C9C9C9' for x in range(len(self._majorList))]
+                rowbg = ['#C9C9C9' for _ in range(len(self._majorList))]
             else:
                 rowbg = []
             
@@ -254,7 +255,7 @@ class rootWindow(tk.Frame):
             self._attr2key[row[1]] = row[0]
         
         keymap = self._getDataList('select ROWID, name from obSkills')
-        self._dirty = [ 0 for x in range(len(keymap))]
+        self._dirty = [ 0 for _ in range(len(keymap))]
         self._skill2key = {}
         self._key2skill = {}
         for row in keymap:
@@ -265,8 +266,8 @@ class rootWindow(tk.Frame):
         self._attrdesclist = self._getDataList(self._sqls['attrdesc'])
 
         keymap = self._getDataList(self._sqls['skillkey'])
-        self._skillKey2Row = [ [] for x in range(len(keymap)) ]
-        self._row2SkillKey = [ [] for x in range(len(keymap)) ]
+        self._skillKey2Row = [ [] for _ in range(len(keymap)) ]
+        self._row2SkillKey = [ [] for _ in range(len(keymap)) ]
         self._minorList = []
         self._majorList = []
         self._row2Underline = []
@@ -282,8 +283,8 @@ class rootWindow(tk.Frame):
         self._majorSkillCnt = len(self._majorList)
                         
         keymap = self._getDataList(self._sqls['attrkey'])
-        self._attr2row = [  [] for x in range(len(keymap)) ]
-        self._row2attr = [ [] for x in range(len(keymap)) ]
+        self._attr2row = [  [] for _ in range(len(keymap)) ]
+        self._row2attr = [ [] for _ in range(len(keymap)) ]
         rowcnt = 0
         for row in keymap:
             self._attr2row[row[0]] = rowcnt
@@ -316,7 +317,6 @@ class rootWindow(tk.Frame):
         key = self._row2SkillKey[x]
         skill = self._key2skill[key]
         attrkey = self._attr2key[ self._skill2attr[skill] ]
-        (curvalue, increase) = self._stats[x]
         if messagebox.askyesno('Increase Skill', f'Increment {skill}?'):
             self._stats[x] = (self._stats[x][0] + 1, self._stats[x][1] + 1)
             self._skills.update(row=x, data=(self._stats[x]))
@@ -350,12 +350,12 @@ class rootWindow(tk.Frame):
             messagebox.showerror('SQL error', f'Error in {sql}\n{str(e)}')
 
     def _doNothing(self):
-       messagebox.showwarning('rootWindow', 'Do Nothing Button Pressed')
+        messagebox.showwarning('rootWindow', 'Do Nothing Button Pressed')
     
     def _setDB(self, filename):
         self._validDB = (self._dbName != filename) and (filename is not None and os.path.isfile(filename))
         if self._validDB:
-            (fpath, fname) = os.path.split(filename)
+            (_, fname) = os.path.split(filename)
             self._dbName = filename
             self.parent.title(f'Oblivion Levels {fname}')
             self._checkMenu()
@@ -367,16 +367,14 @@ class rootWindow(tk.Frame):
         filename = self._recentList[idx]
         if filename and len(filename):
             if os.path.isfile(filename):
-                (fpath, fname) = os.path.split(filename)
                 self._setDB(filename)
                 self._setupRecentMenu(filename=filename)
                 self._checkMenu()
         
-    def _openDB(self, *args):
+    def _openDB(self, *args): # pylint: disable=unused-argument
         filename = fd.askopenfilename(parent=self.parent, title='Open Database', filetypes=self._filetypes)
         if filename and len(filename):
             if os.path.isfile(filename):
-                (fpath, fname) = os.path.split(filename)
                 self._setDB(filename)
                 self._setupRecentMenu(filename=filename)
                 self._checkMenu()
@@ -428,8 +426,8 @@ class rootWindow(tk.Frame):
                                  f' failed with message\n{str(e)}')
             
     def _setLevel(self):
-        level = datadialogs.askinteger('Select Level', 'Enter level number.', parent=self.parent,
-                                       default=self._curLevel)
+        level = askinteger('Select Level', 'Enter level number.', parent=self.parent,
+                            default=self._curLevel)
         if level is not None:
             try:
                 with sqlite3.connect(self._dbName) as conn:
@@ -447,14 +445,14 @@ class rootWindow(tk.Frame):
                                      f' failed with message\n{str(e)}')
         
     def _editLevel(self):
-        level = datadialogs.askinteger('Level to Edit', 'Enter the Level to Edit', parent=self.parent,
-                                       default=self._curLevel, font=self._defaultFont)
+        level = askinteger('Level to Edit', 'Enter the Level to Edit', parent=self.parent,
+                            default=self._curLevel, font=self._defaultFont)
         if level is not None:
             if sum(self._dirty):
                 if messagebox.askyesno('Save Changes', 'Save Changes? Unsaved changes will be lost.'):
                     self._saveDB(force=True)
             levels = self._getLevel(level)
-            myEntry = datadialogs.LocalEntryDialog(self.parent, cnf={'bg':'#D3B683'}, font=self._defaultFont)
+            myEntry = LocalEntryDialog(self.parent, cnf={'bg':'#D3B683'}, font=self._defaultFont)
             if myEntry.show(data=levels, editcols=[1, 2, ], cnf={ 'bd':1, 'relief':'flat', 'bg':'#D3B683', }):
                 try:
                     newStats = myEntry.data
@@ -467,7 +465,6 @@ class rootWindow(tk.Frame):
                             newAttrs = myEntry.data
                             for row in newAttrs:
                                 _name = self._attrVals[1]  # for Exception below
-                                params = (row[0], self._attr2key[row[1]], level,)
                                 conn.execute('update obAttrs set curvalue=? where ATTRID = ? and level = ?',
                                              (row[0], self._attr2key[row[1]], level,))
                     self._curLevel = level
@@ -502,7 +499,7 @@ class rootWindow(tk.Frame):
                 pass
             self._notesDialog = tk.Toplevel(self.parent, bg='#C9C9C9')
             self._notesDialog.protocol('WM_DELETE_WINDOW', self._cancelNotes)
-            self._notesFrame = datadialogs.LocalDataFrame(self._notesDialog, data=self._notes, font=self._defaultFont,)
+            self._notesFrame = LocalDataFrame(self._notesDialog, data=self._notes, font=self._defaultFont,)
             self._notesFrame.grid(row=0, column=0, columnspan=2, sticky='nsew')
             self._notesDialog.rowconfigure(0, weight=1)
             saveButton = tk.Button(self._notesDialog, text='Save', command=self._saveNotes, font=self._defaultFont)
@@ -531,7 +528,7 @@ class rootWindow(tk.Frame):
                         conn.execute('INSERT INTO obAttrs (curvalue,ATTRID,level) VALUES (?,?,?)', params)
                 self._curLevel += 1
                 self._initDataSets()
-                myEntry = datadialogs.LocalEntryDialog(self.parent, cnf={'bg':'#D3B683'})
+                myEntry = LocalEntryDialog(self.parent, cnf={'bg':'#D3B683'})
                 if myEntry.show(data=self._attrVals, editcols=[0, ], widths=[10, 20, ]):
                     with sqlite3.connect(self._dbName) as conn:
                         newAttrs = myEntry.data
@@ -568,10 +565,11 @@ class rootWindow(tk.Frame):
         if filename and len(filename):
             if not os.path.isfile(filename) and messagebox.askyesno('Create DB', f'Create New DB at\n\t{filename}'):
                 logger.debug(f'Create database {filename}')
-                with open('create_obdb.sql', 'r') as f:
+                (fpath, _) = os.path.split(__file__)
+                with open(f'{fpath}/create_obdb.sql', 'r') as f:
                     filelist = f.readlines()
                 createscript = ' '.join(filelist)
-                with open('insert_obdb.sql', 'r') as f:
+                with open(f'{fpath}/insert_obdb.sql', 'r') as f:
                     filelist = f.readlines()
                 insertscript = ' '.join(filelist)
                 try:
@@ -586,6 +584,7 @@ class rootWindow(tk.Frame):
                 except (sqlite3.Warning, sqlite3.Error) as e:
                     messagebox.showerror(title='SQL Exception', message=str(e))
             else:
+                (_,fname) = os.path.split(filename)
                 messagebox.showerror(parent=self.parent,
                                      title='New DB', message=f"{fname} already exists!")          
         self._checkMenu()
@@ -601,11 +600,11 @@ class rootWindow(tk.Frame):
         self.parent.config(menu=self._menu)
 
     def _showSQL(self):
-        sql = datadialogs.askstring('SQL', 'Enter SQL for query', parent=self.parent)
+        sql = askstring('SQL', 'Enter SQL for query', parent=self.parent)
         if sql:
             try:
                 df = self._getDataFrame(sql)
-                datatable = LocalTableDialog(parent=se.f.parent, dataframe=df, title=f'Query: {sql}')
+                _ = LocalTableDialog(parent=self.parent, dataframe=df, title=f'Query: {sql}')
             except (sqlite3.Warning, sqlite3.Error, pd.errors.DatabaseError) as e:
                 messagebox.showerror('SQL error', f'Error in {sql}\n{str(e)}')
              
@@ -627,7 +626,7 @@ class rootWindow(tk.Frame):
     def _clearMenu(self, menu):
         lastItem = menu.index(tk.END)
         if lastItem is not None:
-            for i in range(lastItem + 1):
+            for _ in range(lastItem + 1):
                 menu.delete("end")
         
     def _fillIncMenu(self):
@@ -671,7 +670,7 @@ class rootWindow(tk.Frame):
         self._clearMenu(self._recentMenu)
         if len(self._recentList):
             for idx, filename in zip(range(len(self._recentList)), self._recentList):
-                (fpath, fname) = os.path.split(filename)
+                (_, fname) = os.path.split(filename)
                 self._recentMenu.add_command(label=f'{idx}: {fname}', underline=0, command=self._recentCommands[idx])
         self._saveConfig()
            
@@ -695,11 +694,11 @@ class rootWindow(tk.Frame):
         
     def _bindHotkeys(self, parent, keys):
         for char in keys:
-            self.parent.bind(f'<Control-KeyPress-{char}>', self._hotkeyHandler)
+            parent.bind(f'<Control-KeyPress-{char}>', self._hotkeyHandler)
     
     def _unbindHotkeys(self, parent, keys):
         for char in [keys]: 
-            self.parent.unbind(f'<Control-KeyPress-{char}>')
+            parent.unbind(f'<Control-KeyPress-{char}>')
 
     def _hotkeyHandler(self, event):
         match event.keysym.upper():
@@ -751,8 +750,7 @@ def main():
     
     if args.verbose:
         logger.setLevel(logging.INFO)
-    mainWindow = rootWindow(title=f'Level Manager: {args.database}', dbname=args.database,
-                            cnf={})
+    mainWindow = rootWindow(title=f'Level Manager: {args.database}', dbname=args.database,)
     if args.new:
         mainWindow._newDB()
     mainWindow.mainloop()    

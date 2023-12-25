@@ -221,7 +221,7 @@ class SideBySideDialog():
     
     @right.setter
     def right(self, rightlist:list):
-        self._right = rightlight
+        self._right = rightlist
     
     @property
     def left(self):
@@ -365,7 +365,6 @@ class LocalDialog():
         
     def _okPress(self, *args):
         _validator = {'integer':int, 'flaot': float, 'complex':complex}
-        valid = _validator.get(self._dtype, str)
         try:
             if self._dtype == 'integer':
                 self._resp = _validator['integer'](self._entry.get())
@@ -375,7 +374,7 @@ class LocalDialog():
                 self._resp = self._entry.get()
             self._popup.destroy()
         except ValueError as e:
-            messagebox.showerror('ValueError', f'{self._entry.get()} is not {self._dtype}. Try Again')
+            messagebox.showerror('ValueError', f'{self._entry.get()} is not {self._dtype}. Try Again\n{e}')
 
     def _cancelPress(self, *args):
         self._resp = None
@@ -473,7 +472,7 @@ class LocalEntryFrame(tk.Frame):
                 data = [ [] ]
         self._data = data               
         self._shape = (nrows, ncols) = _getShape(shape=shape, data=data)
-        self._fields = [[None for i in range(ncols)] for j in range(nrows)]
+        self._fields = [[None for _ in range(ncols)] for _ in range(nrows)]
         self._cnf = cnf
 
         self.configure(cnf)
@@ -646,7 +645,7 @@ class LocalEntryDialog():
     
     @data.setter
     def data(self, value):
-        self._data = data
+        self._data = value
         self._entryFrame.data = value
     
     @property
@@ -697,7 +696,7 @@ class LocalDataFrame(LocalEntryFrame):
         super().__init__(parent, **kw)
 
 
-class LocalTableFrame(tk.Frame):
+class LocalTableDialog(tk.Frame):
     """Basic frame for a pandastable displaying a pandas.dataframe table
     
     Display items from the pandas dataset 
@@ -759,7 +758,7 @@ class LocalButtonFrame(tk.Frame):
     def __init__(self, parent=None, cnf=None, shape=(1, 1), commands:list=[], data=[], rowbg=[], font=None):
         if parent is None: parent = tk.Tk()
         self.master = parent
-        self._buttons = [[None for i in range(shape[1])] for j in range(shape[0])]
+        self._buttons = [[None for _ in range(shape[1])] for _ in range(shape[0])]
         self._shape = (nrows, ncols) = shape
         self._font = font
         
