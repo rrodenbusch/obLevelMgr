@@ -35,10 +35,11 @@ Go to the project directory
 ```bash
   cd obleveltracker
 ```
-Build the wheel file
+Build the distributable files
 
 ```bash
   python3 -m build --wheel
+  python3 -m build --sdist
 ```
 ## Installation
 
