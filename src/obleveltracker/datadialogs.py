@@ -484,7 +484,7 @@ class LocalDataFrame(tk.Frame):
             if (isinstance(editable, bool) or 
                  (len(editrows) == 0 and len(editcols) == 0 and len(editable) == 0)):
                 editable = [[True for _ in range(ncols)] for _ in range(nrows)]
-
+        wrapCols = kw.get('wraps', [])
         for row in range(nrows):
             for col in range(ncols):
                 width = _getValue(widths, col=col, default=None)
@@ -495,12 +495,17 @@ class LocalDataFrame(tk.Frame):
                         justify = 'left'
                     else:
                         justify = 'center'
-                    self._fields[row][col] = tk.Entry(self, justify=justify, font=self._font,
+                    if str(col) in wrapCols:
+                        self._fields[row][col] = tk.Text(self, font=self._font, wrap=tk.WORD, height=1,
                                                           bg=_getValue(rowbg, row=row, default='white'))
+                        self._fields[row][col].insert(tk.INSERT, _getValue(values, row=row, col=col, default=''))
+                    else:
+                        self._fields[row][col] = tk.Entry(self, justify=justify, font=self._font,
+                                                          bg=_getValue(rowbg, row=row, default='white'))
+                        self._fields[row][col].insert(0, _getValue(values, row=row, col=col, default=''))
                     if width:
                         self._fields[row][col]['width'] = width
-                        
-                    self._fields[row][col].insert(0, _getValue(values, row=row, col=col, default=''))
+
                 else: 
                     self._fields[row][col] = tk.Label(self, anchor=anchor, pady=1, font=self._font,
                                                       bg=_getValue(rowbg, row=row, default='white'),
@@ -510,7 +515,10 @@ class LocalDataFrame(tk.Frame):
         for row in range(nrows):
             self.rowconfigure(row, weight=1)
         for col in range(ncols):
-            self.columnconfigure(col, weight=1)
+            if col in wrapCols:
+                self.columnconfigure(col, weight=10)
+            else:
+                self.columnconfigure(col, weight=1)
     
     def _setField(self, row, col, value):
         # Handle fields which can be either tk.Label or tk.Entry
@@ -555,7 +563,7 @@ class LocalDataFrame(tk.Frame):
         for row in range(self._shape[0]):
             curRow = []
             for col in range(self._shape[1]):
-                if isinstance(self._fields[row][col], tk.Entry):
+                if isinstance(self._fields[row][col], [tk.Text, tk.Entry]):
                     curRow.append(self._fields[row][col].get())
                 else:
                     curRow.append(self._data[row][col])

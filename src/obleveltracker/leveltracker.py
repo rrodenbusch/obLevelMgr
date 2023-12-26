@@ -139,6 +139,8 @@ class rootWindow(tk.Frame):
         self._config.optionxform = str
         self._tkDefaultFont = tk.font.nametofont("TkDefaultFont")
         self._defaultFont = tk.font.Font()
+        self._notesWrap = []
+        self._notesWidth = []
         try:
             if os.path.isfile(self._cfgFname):
                 self._config.read(self._cfgFname)
@@ -151,6 +153,18 @@ class rootWindow(tk.Frame):
                 self._defaultFont.configure(weight=self._config.get('default', 'fontWeight'))
             if self._config.has_option('default', 'fontName'):
                 self._defaultFont.configure(family=self._config.get('default', 'fontName'))
+            if self._config.has_section('Notes'):
+                self._notesWrap = self._config.get('Notes', 'Wrap', fallback='')
+                self._notesWidth = self._config.get('Notes', 'Width', fallback='')
+                if ',' in self._notesWrap:
+                    self._notesWrap = self._notesWrap.split(',')
+                else: 
+                    self._notesWrap = [ self._notesWrap ]
+                if ',' in self._notesWidth:
+                    self._notesWidth = self._notesWidth.split(',')
+                else:
+                    self._notesWidth = [ self._notesWidth ]
+                
         except configparser.Error as e:
             messagebox.showerror('Config Error', f'Configuration File Error\n{e}')
         self._width = self._config.get('main', 'width', fallback='1860')   
@@ -517,7 +531,6 @@ class rootWindow(tk.Frame):
         self._notesDialog.columnconfigure(0, weight=1)
         self._notesDialog.columnconfigure(1, weight=1)    
 
-
     def _editNotes(self):
         if self._notesDialog:
             self._notesDialog.lift()
@@ -537,8 +550,8 @@ class rootWindow(tk.Frame):
             notesMenu.add_command(label='Insert Row', underline=0, command=self._addNotesRow)
 
             self._notesDialog.protocol('WM_DELETE_WINDOW', self._cancelNotes)
-            self._notesFrame = LocalDataFrame(self._notesDialog, data=notesList, font=self._defaultFont, editable=True)
-
+            self._notesFrame = LocalDataFrame(self._notesDialog, data=notesList, font=self._defaultFont, editable=True,
+                                              wraps=self._notesWrap, widths=self._notesWidth)
             self._notesDialog.rowconfigure(0, weight=1)
             self._notesSaveButton = tk.Button(self._notesDialog, text='Save', command=self._saveNotes, font=self._defaultFont)
             self._notesCancelButton = tk.Button(self._notesDialog, text='Cancel', command=self._cancelNotes, font=self._defaultFont)
