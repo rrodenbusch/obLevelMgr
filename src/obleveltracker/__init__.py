@@ -16,10 +16,9 @@ __version__="0.1.0"
 import tkinter as tk
 
 from .datadialogs import (LocalDataFrame,
+                          LocalDataDialog,
                           LocalButtonFrame,
                           LocalTableDialog,
                           SideBySideDialog,
-                          LocalEntryFrame,
-                          LocalEntryDialog,
                           askinteger,
                           askstring,)

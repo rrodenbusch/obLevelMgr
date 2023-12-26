@@ -24,11 +24,10 @@ import tkinter as tk
 
 from tkinter import messagebox, filedialog as fd
 from obleveltracker.datadialogs import (LocalDataFrame,
+                                        LocalDataDialog,
                                         LocalButtonFrame,
                                         SideBySideDialog,
                                         LocalTableDialog,
-                                        LocalEntryDialog,
-                                        LocalEntryFrame,
                                         askinteger,
                                         askstring,)
 
@@ -80,7 +79,7 @@ class rootWindow(tk.Frame):
         tk.Frame cover the parent Window
     """
 
-    def __init__(self, parent=None, title='obTable', dbname=None, ):
+    def __init__(self, parent=None, title='obTable', **kw):
         self._skillmapdf = None
         self._skillsmap = None
         self._curLevel = None
@@ -90,6 +89,10 @@ class rootWindow(tk.Frame):
         self._dirty = [ 0 ]
         self._levelsInc = 0
         self._filetypes = (('DB files', '*.db'), ('All files', '*.*'))
+        self._environ = dict(os.environ)
+        self._homeDir = self._environ.get('HOME', self._environ.get('HOMEPATH', ''))
+        self._cfgFname = f"{self._homeDir}/.oblevel.ini"
+        self._notesFname = f"{self._homeDir}/notes.csv"
         
         self._incCommands = [[lambda: self._inc(0)], [lambda: self._inc(1)], [lambda: self._inc(2)], [lambda: self._inc(3)], [lambda: self._inc(4)],
             [lambda: self._inc(5)], [lambda: self._inc(6)], [lambda: self._inc(7)], [lambda: self._inc(8)], [lambda: self._inc(9)],
@@ -116,29 +119,29 @@ class rootWindow(tk.Frame):
         self.main['bg'] = '#D3B683'
         self.font = tk.font.nametofont("TkDefaultFont").actual()
         self.main.protocol("WM_DELETE_WINDOW", self._quit)
-        parent.bind("<Configure>", self._on_window_resize)
-        self._setDB(dbname)
+        parent.bind("<Configure>", self._on_window_resize)      
         self._setupMenu()
+        if (len(self._recentList) > 0 and os.path.isfile(self._recentList[0]) and 
+             messagebox.askyesno('Reopen Last Game', f'Reopen last game, {self._recentList[0]}?')):
+            self._setDB(self._recentList[0])
+            self._checkMenu()
         self._drawFrame()
         
     def _saveConfig(self):
         if not self._config.has_section('RecentFiles'):
             self._config.add_section('RecentFiles')
         self._config.set('RecentFiles', 'files', "\n".join(self._recentList))
-        with open(self._cfgFile, 'w') as f:
+        with open(self._cfgFname, 'w') as f:
             self._config.write(f)
         
     def _getConfig(self):
         self._config = configparser.ConfigParser()
         self._config.optionxform = str
-        self._environ = dict(os.environ)
-        self._homeDir = self._environ.get('HOME', self._environ.get('HOMEPATH', ''))
-        self._cfgFile = f"{self._homeDir}/.oblevel.ini"
         self._tkDefaultFont = tk.font.nametofont("TkDefaultFont")
         self._defaultFont = tk.font.Font()
         try:
-            if os.path.isfile(self._cfgFile):
-                self._config.read(self._cfgFile)
+            if os.path.isfile(self._cfgFname):
+                self._config.read(self._cfgFname)
             else:
                 if os.path.isfile(f"{os.getcwd()}/oblevel.ini"):
                     self._config.read(f"{os.getcwd()}/oblevel.ini")
@@ -195,7 +198,7 @@ class rootWindow(tk.Frame):
                                           commands=self._incCommands, font=self._defaultFont,)
             self._buttons.grid(row=1, column=1, sticky='nsew')
             
-            self._desc = LocalEntryFrame(self.parent, data=self._skilldesclist, cnf=desccnf, rowbg=rowbg, font=self._defaultFont,)
+            self._desc = LocalDataFrame(self.parent, data=self._skilldesclist, cnf=desccnf, rowbg=rowbg, font=self._defaultFont,)
             self._desc.grid(row=1, column=2, sticky='nsew')
             
             self._attrs = LocalDataFrame(self.parent, shape=attrshape, cnf=skillcnf, data=self._attrSums, anchor='n',
@@ -371,7 +374,7 @@ class rootWindow(tk.Frame):
                 self._setupRecentMenu(filename=filename)
                 self._checkMenu()
         
-    def _openDB(self, *args): # pylint: disable=unused-argument
+    def _openDB(self, *args):  # pylint: disable=unused-argument
         filename = fd.askopenfilename(parent=self.parent, title='Open Database', filetypes=self._filetypes)
         if filename and len(filename):
             if os.path.isfile(filename):
@@ -452,7 +455,7 @@ class rootWindow(tk.Frame):
                 if messagebox.askyesno('Save Changes', 'Save Changes? Unsaved changes will be lost.'):
                     self._saveDB(force=True)
             levels = self._getLevel(level)
-            myEntry = LocalEntryDialog(self.parent, cnf={'bg':'#D3B683'}, font=self._defaultFont)
+            myEntry = LocalDataDialog(self.parent, cnf={'bg':'#D3B683'}, font=self._defaultFont)
             if myEntry.show(data=levels, editcols=[1, 2, ], cnf={ 'bd':1, 'relief':'flat', 'bg':'#D3B683', }):
                 try:
                     newStats = myEntry.data
@@ -475,42 +478,75 @@ class rootWindow(tk.Frame):
                     messagebox.showerror('SQL error', f'Update Level {level} skill {_name}\n'
                                          f' failed with message\n{str(e)}')
 
-    def _saveNotes(self, *args, force=False):
-        self._notes = self._notesFrame.data
-        #  If not forced, confirm the save
-        messagebox.showinfo('save notes', f'save notes\n{self._notes}')
+    def _saveNotes(self):
+        notesList = self._notesFrame.data
+        with open(f"{self._homeDir}/notes.csv", 'w', newline='') as f:
+            writer = csv.writer(f)
+            for row in notesList:
+                writer.writerow(row)
         
     def _cancelNotes(self):
-        # if self._notesFrame.isdirty() - Ask for save first
         if messagebox.askokcancel('Close Notes', 'Close Notes?\nUnsaved data will be lost'):
             self._notesDialog.destroy()
             self._notesDialog = None
         
-    def _editNotes(self, *args):
+    def _addNotesRow(self):
+        curData = self._notesFrame.data
+        newRow = ['*' for _ in range(len(curData[0]))]
+        curData.append(newRow)
+        self._notesFrame.update(data=curData, font=self._defaultFont, editable=True)
+        
+        self._notesFrame.grid(row=0, column=0, columnspan=2, sticky='nsew')
+        self._notesSaveButton.grid(row=1, column=0, sticky='e')
+        self._notesCancelButton.grid(row=1, column=1, sticky='w')
+        self._notesDialog.columnconfigure(0, weight=1)
+        self._notesDialog.columnconfigure(1, weight=1)    
+
+    def _addNotesColumn(self):
+        curData = self._notesFrame.data
+        if not len(curData):
+            messagebox.showerror('No Rows Found', 'Notes must have at least one row before inserting a column')
+        else:
+            for row in curData:
+                row.append('*')
+            self._notesFrame.update(data=curData, font=self._defaultFont, editable=True)
+            
+        self._notesFrame.grid(row=0, column=0, columnspan=2, sticky='nsew')
+        self._notesSaveButton.grid(row=1, column=0, sticky='e')
+        self._notesCancelButton.grid(row=1, column=1, sticky='w')
+        self._notesDialog.columnconfigure(0, weight=1)
+        self._notesDialog.columnconfigure(1, weight=1)    
+
+
+    def _editNotes(self):
         if self._notesDialog:
             self._notesDialog.lift()
         else:
-            self._notes = []
             try:
-                with open('notes.csv', newline='') as f:
+                with open(self._notesFname, newline='') as f:
                     reader = csv.reader(f)
-                    self._notes = list(reader)
+                    notesList = list(reader)
+                if len(notesList) < 1:
+                    notesList = [['*']]
             except FileNotFoundError:
-                pass
+                notesList = [['*']]
             self._notesDialog = tk.Toplevel(self.parent, bg='#C9C9C9')
+            notesMenu = tk.Menu(self._notesDialog)
+            self._notesDialog.config(menu=notesMenu)
+            notesMenu.add_command(label='Insert Column', underline=0, command=self._addNotesColumn)
+            notesMenu.add_command(label='Insert Row', underline=0, command=self._addNotesRow)
+
             self._notesDialog.protocol('WM_DELETE_WINDOW', self._cancelNotes)
-            self._notesFrame = LocalDataFrame(self._notesDialog, data=self._notes, font=self._defaultFont,)
-            self._notesFrame.grid(row=0, column=0, columnspan=2, sticky='nsew')
+            self._notesFrame = LocalDataFrame(self._notesDialog, data=notesList, font=self._defaultFont, editable=True)
+
             self._notesDialog.rowconfigure(0, weight=1)
-            saveButton = tk.Button(self._notesDialog, text='Save', command=self._saveNotes, font=self._defaultFont)
-            saveButton.grid(row=1, column=0, sticky='e')
-            cancButton = tk.Button(self._notesDialog, text='Cancel', command=self._cancelNotes, font=self._defaultFont)
-            cancButton.grid(row=1, column=1, sticky='w')
+            self._notesSaveButton = tk.Button(self._notesDialog, text='Save', command=self._saveNotes, font=self._defaultFont)
+            self._notesCancelButton = tk.Button(self._notesDialog, text='Cancel', command=self._cancelNotes, font=self._defaultFont)
+            self._notesFrame.grid(row=0, column=0, columnspan=2, sticky='nsew')
+            self._notesSaveButton.grid(row=1, column=0, sticky='e')
+            self._notesCancelButton.grid(row=1, column=1, sticky='w')
             self._notesDialog.columnconfigure(0, weight=1)
             self._notesDialog.columnconfigure(1, weight=1)    
-            self._notesFrame._drawFrame(data=self._notes)
-         
-        messagebox.showinfo('In Note', f'Edit Notes: {len(self._notes)} lines\n{self._notes}')
     
     def _levelUp(self):
         # Save current level and setup next level in database
@@ -528,7 +564,7 @@ class rootWindow(tk.Frame):
                         conn.execute('INSERT INTO obAttrs (curvalue,ATTRID,level) VALUES (?,?,?)', params)
                 self._curLevel += 1
                 self._initDataSets()
-                myEntry = LocalEntryDialog(self.parent, cnf={'bg':'#D3B683'})
+                myEntry = LocalDataDialog(self.parent, cnf={'bg':'#D3B683'})
                 if myEntry.show(data=self._attrVals, editcols=[0, ], widths=[10, 20, ]):
                     with sqlite3.connect(self._dbName) as conn:
                         newAttrs = myEntry.data
@@ -584,7 +620,7 @@ class rootWindow(tk.Frame):
                 except (sqlite3.Warning, sqlite3.Error) as e:
                     messagebox.showerror(title='SQL Exception', message=str(e))
             else:
-                (_,fname) = os.path.split(filename)
+                (_, fname) = os.path.split(filename)
                 messagebox.showerror(parent=self.parent,
                                      title='New DB', message=f"{fname} already exists!")          
         self._checkMenu()
@@ -706,6 +742,8 @@ class rootWindow(tk.Frame):
                 self._newDB()
             case 'O':
                 self._openDB()
+            case 'S':
+                self._saveDB()
             case 'Q':
                 self._quit()
             case _:

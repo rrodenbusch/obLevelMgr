@@ -419,7 +419,7 @@ def askinteger(*args, **kw):
     return popup.askinteger(*args, **kw)
 
     
-class LocalEntryFrame(tk.Frame): 
+class LocalDataFrame(tk.Frame): 
     """A frome to manage a grid of data, some of which are editable
     
     Display all data in a grid, making some editable
@@ -452,36 +452,45 @@ class LocalEntryFrame(tk.Frame):
     
     """
 
-    def __init__(self, parent=None, cnf:dict={}, shape=(1, 1),
-                 data:list=None, rowbg:list=[], anchor:str='w', widths=None, default=None, **kw):
+    def __init__(self, parent=None, cnf:dict={}, shape=(1, 1), default=None, **kw):
         if parent is None: parent = tk.Tk()
-        # self.master = parent
         tk.Frame.__init__(self, parent)
-        self._editable = ('editable' in kw) or ('editcols' in kw) or ('editrows' in kw)
+        values = kw.get('data', None)
+        if 'data' in kw:
+            del kw['data']
+        if values is None:  # create data with shape given using default value
+            if default == '{row}{col}': 
+                values = [ [f'({row},{col})' for col in range(shape[1])] for row in range(shape[0])]
+            elif default:
+                values = [ [default for col in range(shape[1])] for row in range(shape[0])]
+            else:
+                values = [ [] ]
+        self._data = values.copy()
+        self._cnf = cnf
+        self.configure(cnf)
+        self._editable = kw.get('editable', None)
+        self._drawFrame(**kw)
+        
+    def _drawFrame(self, widths=None, rowbg:list=[], anchor:str='w', **kw):
         self._font = kw.get('font')
+        self._editable = self._editable or ('editable' in kw) or ('editcols' in kw) or ('editrows' in kw)
+        values = kw.get('data', self._data)
+        self._shape = (nrows, ncols) = (len(values), len(values[0]))       
+        self._fields = [[None for _ in range(ncols)] for _ in range(nrows)]
         if self._editable:
-            editable = kw.get('editable', [])
             editrows = kw.get('editrows', [])
             editcols = kw.get('editcols', [])
-        if data is None:  # create data with shape given using default value
-            if default == '{row}{col}': 
-                data = [ [f'({row},{col})' for col in range(shape[1])] for row in range(shape[0])]
-            elif default:
-                data = [ [default for col in range(shape[1])] for row in range(shape[0])]
-            else:
-                data = [ [] ]
-        self._data = data               
-        self._shape = (nrows, ncols) = _getShape(shape=shape, data=data)
-        self._fields = [[None for _ in range(ncols)] for _ in range(nrows)]
-        self._cnf = cnf
+            editable = kw.get('editable', [])
+            if (isinstance(editable, bool) or 
+                 (len(editrows) == 0 and len(editcols) == 0 and len(editable) == 0)):
+                editable = [[True for _ in range(ncols)] for _ in range(nrows)]
 
-        self.configure(cnf)
         for row in range(nrows):
             for col in range(ncols):
                 width = _getValue(widths, col=col, default=None)
                 if (self._editable and
                      ((row in editrows) or (col in editcols) or _getValue(editable, row=row, col=col, default=False))):
-                    curValue = _getValue(data, row=row, col=col, default='')
+                    curValue = _getValue(values, row=row, col=col, default='')
                     if isinstance(curValue, str):
                         justify = 'left'
                     else:
@@ -491,11 +500,11 @@ class LocalEntryFrame(tk.Frame):
                     if width:
                         self._fields[row][col]['width'] = width
                         
-                    self._fields[row][col].insert(0, _getValue(data, row=row, col=col, default=''))
+                    self._fields[row][col].insert(0, _getValue(values, row=row, col=col, default=''))
                 else: 
                     self._fields[row][col] = tk.Label(self, anchor=anchor, pady=1, font=self._font,
                                                       bg=_getValue(rowbg, row=row, default='white'),
-                                                      text=_getValue(data, row=row, col=col, default=''))
+                                                      text=_getValue(values, row=row, col=col, default=''))
                 self._fields[row][col].grid(row=row, column=col, sticky='nsew', padx=1, pady=1)
                 self.grid(row=row, column=col, sticky='nsew')
         for row in range(nrows):
@@ -527,45 +536,35 @@ class LocalEntryFrame(tk.Frame):
         Exceptions:
             Suppress IndexError if row, col are outside span of values and returns default
         """
-        (row, col, data) = (kw.get('row'), kw.get('col', kw.get('column')), kw.get('data')) 
+        (row, col, values) = (kw.get('row'), kw.get('col', kw.get('column')), kw.get('data')) 
         if col is None and row is None:  # data set replacement
-            self.data = data
+            self._drawFrame(**kw)                
         elif col is None:  # row replacement
-            for col in range(len(data)):
-                self._setField(row, col, _getValue(data, col=col))
+            for col in range(len(values)):
+                self._setField(row, col, _getValue(values, col=col))
         elif row is None:  # column replacement
-            for row in range(len(data)):
-                self._setField(row, col, _getValue(data, row=row))
+            for row in range(len(values)):
+                self._setField(row, col, _getValue(values, row=row))
         else:
-            self._setField(row, col, data)
+            self._setField(row, col, values)
 
     @property
     def data(self):
         """ A list of the current data in the grid """
-        if self._editable:
-            data = []
-            for row in range(self._shape[0]):
-                curRow = []
-                for col in range(self._shape[1]):
-                    if isinstance(self._fields[row][col], tk.Entry):
-                        curRow.append(self._fields[row][col].get())
-                    else:
-                        curRow.append(self._data[row][col])
-                data.append(curRow)
-            self._data = data
-        return self._data
-    
-    @data.setter
-    def data(self, value):
-        self._data = value
-        (nrows, ncols) = (len(self._fields), len(self._fields[0]))
-        for row in nrows:
-            for col in ncols:
-                self._setField(row, col, _getValue(value, row=row, col=col, default=self._fields[row][col]))
+        values = []
+        for row in range(self._shape[0]):
+            curRow = []
+            for col in range(self._shape[1]):
+                if isinstance(self._fields[row][col], tk.Entry):
+                    curRow.append(self._fields[row][col].get())
+                else:
+                    curRow.append(self._data[row][col])
+            values.append(curRow)
+        return values
 
     
-class LocalEntryDialog(): 
-    """ Simple, controllable dialog box for managing a LocalEntryFrame
+class LocalDataDialog(): 
+    """ Simple, controllable dialog box for managing a LocalDataFrame
     
     Grid based data entry dialog
     
@@ -604,7 +603,7 @@ class LocalEntryDialog():
         if 'parent' in kw:
             del kw['parent']
         font = kw.get('font', self._font)
-        self._entryFrame = LocalEntryFrame(parent=self._popup, **kw)
+        self._entryFrame = LocalDataFrame(parent=self._popup, **kw)
         self._entryFrame.grid(row=0, column=0, columnspan=2, sticky='nsew')
         self._okButton = tk.Button(self._popup, text='Save', command=self._okPress, font=font, underline=0)
         self._okButton.grid(row=1, column=0, sticky='e')
@@ -658,42 +657,41 @@ class LocalEntryDialog():
             del kw['parent']  # Can't change after creation
         self.parent.wait_window(self._drawDialog(**kw))
         return self._response
-
     
-class LocalDataFrame(LocalEntryFrame):
-    """A frome to manage a grid of text labels
-    
-    Display buttons in a grid 
-
-    Args:
-        parent (tkinter.Tk) : Optional parent window
-        cnf (dict) : Optional configuration parameters for the frame
-        shape (tuple) : Optional if data is None then (nrows, ncols) giving shape of grid; default = (1,1)
-                        the row and column number will be displayed in the grid unless data is set
-        data (list} : Optional list containing the text to display in each grid
-                      shape of the list will override the shape parameter given
-        rowbg (list) : Optional list containing the background color for each row (default is 'white')
-        anchor (str) : Optional anchor for the labels in the grid; default = 'w'
-
-    Examples:
-    
-        desccnf = skillcnf = { 'bd':1, 'relief':'flat', 'bg':'#D3B683'}
-        rowbg = ['#C9C9C9' for x in range(5)]
-        skilldesc = (21, 4)
-        skillshape = (21, 1)
-        attrshape = (7, 1)
-        attrdesc = (7, 3)
-        
-        self._skills = LocalDataFrame(parent, shape=skillshape, cnf=skillcnf, rowbg=rowbg)
-        self._skills.grid(row=0, column=0, sticky='nsew')
-        
-    """
-
-    def __init__(self, parent, **kw):
-        for key in ['editable', 'editcols', 'editrows']:
-            if key in kw:
-                del kw[key]
-        super().__init__(parent, **kw)
+# class LocalDataFrame(LocalEntryFrame):
+#     """A frome to manage a grid of text labels
+#
+#     Display buttons in a grid 
+#
+#     Args:
+#         parent (tkinter.Tk) : Optional parent window
+#         cnf (dict) : Optional configuration parameters for the frame
+#         shape (tuple) : Optional if data is None then (nrows, ncols) giving shape of grid; default = (1,1)
+#                         the row and column number will be displayed in the grid unless data is set
+#         data (list} : Optional list containing the text to display in each grid
+#                       shape of the list will override the shape parameter given
+#         rowbg (list) : Optional list containing the background color for each row (default is 'white')
+#         anchor (str) : Optional anchor for the labels in the grid; default = 'w'
+#
+#     Examples:
+#
+#         desccnf = skillcnf = { 'bd':1, 'relief':'flat', 'bg':'#D3B683'}
+#         rowbg = ['#C9C9C9' for x in range(5)]
+#         skilldesc = (21, 4)
+#         skillshape = (21, 1)
+#         attrshape = (7, 1)
+#         attrdesc = (7, 3)
+#
+#         self._skills = LocalDataFrame(parent, shape=skillshape, cnf=skillcnf, rowbg=rowbg)
+#         self._skills.grid(row=0, column=0, sticky='nsew')
+#
+#     """
+#
+#     def __init__(self, parent, **kw):
+#         for key in ['editable', 'editcols', 'editrows']:
+#             if key in kw:
+#                 del kw[key]
+#         super().__init__(parent, **kw)
 
 
 class LocalTableDialog(tk.Frame):
