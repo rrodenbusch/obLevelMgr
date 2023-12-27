@@ -468,14 +468,18 @@ class LocalDataFrame(tk.Frame):
         self._data = values.copy()
         self._cnf = cnf
         self.configure(cnf)
+        self._fields = [[]]
         self._editable = kw.get('editable', None)
         self._drawFrame(**kw)
         
-    def _drawFrame(self, widths=None, rowbg:list=[], anchor:str='w', **kw):
+    def _drawFrame(self, rowbg:list=[], anchor:str='w', **kw):
         self._font = kw.get('font')
         self._editable = self._editable or ('editable' in kw) or ('editcols' in kw) or ('editrows' in kw)
         values = kw.get('data', self._data)
-        self._shape = (nrows, ncols) = (len(values), len(values[0]))       
+        self._shape = (nrows, ncols) = (len(values), len(values[0]))  
+        for oldRow in self._fields:
+            for widget in oldRow:
+                widget.destroy()
         self._fields = [[None for _ in range(ncols)] for _ in range(nrows)]
         if self._editable:
             editrows = kw.get('editrows', [])
@@ -484,7 +488,8 @@ class LocalDataFrame(tk.Frame):
             if (isinstance(editable, bool) or 
                  (len(editrows) == 0 and len(editcols) == 0 and len(editable) == 0)):
                 editable = [[True for _ in range(ncols)] for _ in range(nrows)]
-        wrapCols = kw.get('wraps', [])
+        wrapCols = kw.get('wrap', [])
+        widths = kw.get('widths', [])
         for row in range(nrows):
             for col in range(ncols):
                 width = _getValue(widths, col=col, default=None)
@@ -563,8 +568,10 @@ class LocalDataFrame(tk.Frame):
         for row in range(self._shape[0]):
             curRow = []
             for col in range(self._shape[1]):
-                if isinstance(self._fields[row][col], [tk.Text, tk.Entry]):
+                if isinstance(self._fields[row][col], tk.Entry):
                     curRow.append(self._fields[row][col].get())
+                elif isinstance(self._fields[row][col], tk.Text,):
+                    curRow.append(self._fields[row][col].get("1.0", tk.END))
                 else:
                     curRow.append(self._data[row][col])
             values.append(curRow)

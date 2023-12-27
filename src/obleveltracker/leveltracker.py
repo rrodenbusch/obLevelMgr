@@ -58,6 +58,161 @@ def get_args():
     return args
 
 
+class notesDialog(tk.Frame):
+    """ Window to display and manage the notes file
+
+    Args:
+        parent (tkinter.Tk) : Optional parent window
+        title (str) : Optional title string for the window; default='obTable'
+        
+    Notes:
+        font attributes: {'family': 'Lucida Grande', 
+                          'weight': 'normal', 
+                          'slant': 'roman', 
+                          'overstrike': False, 
+                          'underline': False, 
+                           'size': 13}
+
+    Returns:
+        tk.Frame cover the parent Window
+    """
+
+    def __init__(self, parent=None, **kw):
+        if parent is None: parent = tk.Toplevel(bg='#C9C9C9')
+        self.parent = parent
+        self._notesDialog = parent
+        tk.Frame.__init__(self)
+        notesList = self._notesRefresh(**kw)
+
+        # get any config items passed from configparser
+        self._notesWrap = kw.get('wrap', [])
+        self._notesWidth = kw.get('widths', [])
+        self._notesFont = kw.get('font', tk.font.Font())
+        # Setup the dialog frame
+        notesMenu = tk.Menu(self._notesDialog)
+        self._notesDialog.config(menu=notesMenu)
+        fileMenu = tk.Menu(notesMenu)
+        editMenu = tk.Menu(notesMenu)
+        notesMenu.add_cascade(label='File', underline=0, menu=fileMenu)
+        fileMenu.add_command(label='Save', underline=0, command=self._notesSave, accelerator='Ctrl-S')
+        fileMenu.add_command(label='Close', underline=0, command=self._notesClose, accelerator='Ctrl-C')
+        notesMenu.add_cascade(label='Edit', underline=0, menu=editMenu)
+        editMenu.add_command(label='Add Column', underline=4, command=self._notesAddColumn)
+        editMenu.add_command(label='Add Row', underline=4, command=self._notesAddRow)
+        editMenu.add_command(label='Delete Row', command=self._notesDelRow)
+        editMenu.add_command(label='Delete Column', command=self._notesDelCol)
+        editMenu.add_command(label='Sort', underline=0, command=self._notesSort)
+
+        self._notesFrame = LocalDataFrame(self._notesDialog, data=notesList, font=self._notesFont, editable=True,
+                                          wrap=self._notesWrap, widths=self._notesWidth)
+
+        self._notesDialog.protocol('WM_DELETE_WINDOW', self._notesClose)
+        self._notesDialog.bind('<Control-KeyPress-s>', self._notesSave)
+        self._notesDialog.bind('<Control-KeyPress-S>', self._notesSave)
+        self._notesDialog.bind('<Control-KeyPress-c>', self._notesClose)
+        self._notesDialog.bind('<Control-KeyPress-C>', self._notesClose)
+        self._notesFrame.grid(row=0, column=0, sticky='nsew')   
+        self._notesDialog.rowconfigure(0, weight=1)
+        self._notesDialog.columnconfigure(0, weight=1)
+        self._notesDialog.focus_force()
+        
+    def show(self):
+        self._notesDialog.deiconify()
+
+    def _notesRefresh(self, **kw):
+        self._notesFname = kw.get('fname', 'notes.csv')
+        try:
+            with open(self._notesFname, newline='') as f:
+                reader = csv.reader(f)
+                notesList = list(reader)
+            if len(notesList) < 1:
+                notesList = [['*']]
+        except FileNotFoundError:
+            notesList = [['*']]
+        return notesList
+    
+    def _notesSave(self, *args):
+        notesList = self._notesFrame.data
+        with open(self._notesFname, 'w', newline='') as f:
+            writer = csv.writer(f)
+            for row in notesList:
+                writer.writerow(row)
+        
+    def _notesClose(self, *args):
+        if messagebox.askokcancel('Close Notes', 'Close Notes?\nUnsaved data will be lost'):
+            notesList = self._notesRefresh(fname=self._notesFname)
+            self._notesFrame.update(data=notesList, font=self._notesFont, editable=True)
+            self._notesFrame.grid(row=0, column=0, sticky='nsew')   
+            self._notesDialog.withdraw()
+        else:
+            self._notesDialog.focus_force()
+        
+    def _notesAddRow(self):
+        curData = self._notesFrame.data
+        newRow = ['*' for _ in range(len(curData[0]))]
+        curData.append(newRow)
+        self._notesFrame.update(data=curData, font=self._notesFont, editable=True)  
+        self._notesFrame.grid(row=0, column=0, sticky='nsew')   
+
+    def _notesAddColumn(self):
+        curData = self._notesFrame.data
+        if not len(curData):
+            messagebox.showerror('No Rows Found', 'Notes must have at least one row before inserting a column')
+        else:
+            for row in curData:
+                row.append('*')
+            self._notesFrame.update(data=curData, font=self._notesFont, editable=True)
+            self._notesFrame.grid(row=0, column=0, sticky='nsew')   
+        
+    def _sortKey(self, entry):
+        sortKeys = [ self._sortIdx ]
+        curKey = ''
+        for idx in sortKeys:
+            curKey += entry[idx]
+        return(curKey)
+        
+    def _notesSort(self):
+        sortCol = askinteger('Select Sort Column', 'Enter Sort Column (0 based)', parent=self.parent,
+                            default=-1)
+        if sortCol is not None and sortCol >= 0: 
+            curData = self._notesFrame.data
+            if len(curData) and sortCol < len(curData[0]):
+                self._sortIdx = int(sortCol)
+                curData.sort(key=self._sortKey)
+                self._notesFrame.update(data=curData, font=self._notesFont, editable=True)
+                self._notesFrame.grid(row=0, column=0, sticky='nsew')   
+            else:
+                messagebox.showerror('Invalid Sort Key', f'No column {sortCol} found')
+        
+    def _notesDelRow(self):
+        delRow = askinteger('Delete Row', 'Enter Row (0 based) to Delete:', parent=self.parent,
+                            default=-1)
+        if delRow is not None and delRow >= 0:
+            curData = self._notesFrame.data
+            if len(curData) and delRow < len(curData):
+                if messagebox.askokcancel('Delete Row', f'Delete 0 based Row {delRow} w/ {curData[delRow][0]}?'):
+                    deletedRow = curData.pop(delRow)
+                    messagebox.showinfo('Deleted Row', f'Deleted row {delRow} w/ {deletedRow}')
+                    self._notesFrame.update(data=curData, font=self._notesFont, editable=True)
+                    self._notesFrame.grid(row=0, column=0, sticky='nsew')   
+        self._notesDialog.focus_force()
+        
+    def _notesDelCol(self):
+        delCol = askinteger('Delete Column', 'Enter Column (0 based) to Delete:', parent=self.parent,
+                            default=-1)
+        if delCol is not None and delCol >= 0:
+            curData = self._notesFrame.data
+            if len(curData) and delCol < len(curData[0]):
+                if messagebox.askokcancel('Delete Column', f'Delete 0 based Column {delCol} w/ {curData[0][delCol]}?'):
+                    deletedCol = []
+                    for curRow in curData:
+                        deletedCol.append(curRow.pop(delCol))
+                    messagebox.showinfo('Deleted Column', f'Deleted Column {delCol} w/ {deletedCol}')     
+                    self._notesFrame.update(data=curData, font=self._notesFont, editable=True) 
+                    self._notesFrame.grid(row=0, column=0, sticky='nsew')    
+        self._notesDialog.focus_force()
+        
+
 class rootWindow(tk.Frame):
     """ Application Window to manage Leveling
     
@@ -92,7 +247,6 @@ class rootWindow(tk.Frame):
         self._environ = dict(os.environ)
         self._homeDir = self._environ.get('HOME', self._environ.get('HOMEPATH', ''))
         self._cfgFname = f"{self._homeDir}/.oblevel.ini"
-        self._notesFname = f"{self._homeDir}/notes.csv"
         
         self._incCommands = [[lambda: self._inc(0)], [lambda: self._inc(1)], [lambda: self._inc(2)], [lambda: self._inc(3)], [lambda: self._inc(4)],
             [lambda: self._inc(5)], [lambda: self._inc(6)], [lambda: self._inc(7)], [lambda: self._inc(8)], [lambda: self._inc(9)],
@@ -126,6 +280,7 @@ class rootWindow(tk.Frame):
             self._setDB(self._recentList[0])
             self._checkMenu()
         self._drawFrame()
+        self.parent.focus_force()
         
     def _saveConfig(self):
         if not self._config.has_section('RecentFiles'):
@@ -139,8 +294,7 @@ class rootWindow(tk.Frame):
         self._config.optionxform = str
         self._tkDefaultFont = tk.font.nametofont("TkDefaultFont")
         self._defaultFont = tk.font.Font()
-        self._notesWrap = []
-        self._notesWidth = []
+        self._notesConfig = {'font': tk.font.Font(), 'fname': f"{self._homeDir}/notes.csv"}
         try:
             if os.path.isfile(self._cfgFname):
                 self._config.read(self._cfgFname)
@@ -154,16 +308,19 @@ class rootWindow(tk.Frame):
             if self._config.has_option('default', 'fontName'):
                 self._defaultFont.configure(family=self._config.get('default', 'fontName'))
             if self._config.has_section('Notes'):
-                self._notesWrap = self._config.get('Notes', 'Wrap', fallback='')
-                self._notesWidth = self._config.get('Notes', 'Width', fallback='')
-                if ',' in self._notesWrap:
-                    self._notesWrap = self._notesWrap.split(',')
+                wrapStr = self._config.get('Notes', 'Wrap', fallback='')
+                widthStr = self._config.get('Notes', 'Width', fallback='')
+                self._notesConfig['font'].configure(size=self._config.get('Notes', 'fontSize', fallback=self._defaultFont.cget('size')),
+                                          weight=self._config.get('Notes', 'fontWeight', fallback=self._defaultFont.cget('weight')),
+                                          family=self._config.get('Notes', 'fontName', fallback=self._defaultFont.cget('family')),)
+                if ',' in wrapStr:
+                    self._notesConfig['wrap'] = wrapStr.split(',')
                 else: 
-                    self._notesWrap = [ self._notesWrap ]
-                if ',' in self._notesWidth:
-                    self._notesWidth = self._notesWidth.split(',')
+                    self._notesConfig['wrap'] = [ wrapStr ]
+                if ',' in widthStr:
+                    self._notesConfig['widths'] = widthStr.split(',')
                 else:
-                    self._notesWidth = [ self._notesWidth ]
+                    self._notesConfig['widths'] = [ widthStr ]
                 
         except configparser.Error as e:
             messagebox.showerror('Config Error', f'Configuration File Error\n{e}')
@@ -413,7 +570,7 @@ class rootWindow(tk.Frame):
                                      f' failed with message\n{str(e)}')
             self._drawFrame()
         
-    def _insertLevel(self, level):
+    def _levelInsert(self, level):
         levels = []
         try:
             with sqlite3.connect(self._dbName) as conn:
@@ -425,14 +582,14 @@ class rootWindow(tk.Frame):
             messagebox.showerror('SQL error', f'Insert {skill} @ level {level}\n'
                                  f' failed with message\n{str(e)}')
                 
-    def _getLevel(self, level, create=True):
+    def _levelGet(self, level, create=True):
         selectSQL = 'select skill, curValue from statsMap where level = ? order by Majorskill DESC, Sortorder ASC'
         try:
             with sqlite3.connect(self._dbName) as conn:
                 cursor = conn.execute(selectSQL, (level,))
                 levels = cursor.fetchall()
                 if create and len(levels) < 21:
-                    levels = self._insertLevel(level)
+                    levels = self._levelInsert(level)
                     cursor = conn.execute(selectSQL, (level,))
                     levels = cursor.fetchall()
                     
@@ -442,7 +599,7 @@ class rootWindow(tk.Frame):
             messagebox.showerror('SQL error', f'Get Level {level}\n'
                                  f' failed with message\n{str(e)}')
             
-    def _setLevel(self):
+    def _levelSet(self):
         level = askinteger('Select Level', 'Enter level number.', parent=self.parent,
                             default=self._curLevel)
         if level is not None:
@@ -461,14 +618,14 @@ class rootWindow(tk.Frame):
                 messagebox.showerror('SQL error', f'Set Level {level}\n'
                                      f' failed with message\n{str(e)}')
         
-    def _editLevel(self):
+    def _levelEdit(self):
         level = askinteger('Level to Edit', 'Enter the Level to Edit', parent=self.parent,
                             default=self._curLevel, font=self._defaultFont)
         if level is not None:
             if sum(self._dirty):
                 if messagebox.askyesno('Save Changes', 'Save Changes? Unsaved changes will be lost.'):
                     self._saveDB(force=True)
-            levels = self._getLevel(level)
+            levels = self._levelGet(level)
             myEntry = LocalDataDialog(self.parent, cnf={'bg':'#D3B683'}, font=self._defaultFont)
             if myEntry.show(data=levels, editcols=[1, 2, ], cnf={ 'bd':1, 'relief':'flat', 'bg':'#D3B683', }):
                 try:
@@ -491,76 +648,7 @@ class rootWindow(tk.Frame):
                 except sqlite3.Error as e:
                     messagebox.showerror('SQL error', f'Update Level {level} skill {_name}\n'
                                          f' failed with message\n{str(e)}')
-
-    def _saveNotes(self):
-        notesList = self._notesFrame.data
-        with open(f"{self._homeDir}/notes.csv", 'w', newline='') as f:
-            writer = csv.writer(f)
-            for row in notesList:
-                writer.writerow(row)
-        
-    def _cancelNotes(self):
-        if messagebox.askokcancel('Close Notes', 'Close Notes?\nUnsaved data will be lost'):
-            self._notesDialog.destroy()
-            self._notesDialog = None
-        
-    def _addNotesRow(self):
-        curData = self._notesFrame.data
-        newRow = ['*' for _ in range(len(curData[0]))]
-        curData.append(newRow)
-        self._notesFrame.update(data=curData, font=self._defaultFont, editable=True)
-        
-        self._notesFrame.grid(row=0, column=0, columnspan=2, sticky='nsew')
-        self._notesSaveButton.grid(row=1, column=0, sticky='e')
-        self._notesCancelButton.grid(row=1, column=1, sticky='w')
-        self._notesDialog.columnconfigure(0, weight=1)
-        self._notesDialog.columnconfigure(1, weight=1)    
-
-    def _addNotesColumn(self):
-        curData = self._notesFrame.data
-        if not len(curData):
-            messagebox.showerror('No Rows Found', 'Notes must have at least one row before inserting a column')
-        else:
-            for row in curData:
-                row.append('*')
-            self._notesFrame.update(data=curData, font=self._defaultFont, editable=True)
-            
-        self._notesFrame.grid(row=0, column=0, columnspan=2, sticky='nsew')
-        self._notesSaveButton.grid(row=1, column=0, sticky='e')
-        self._notesCancelButton.grid(row=1, column=1, sticky='w')
-        self._notesDialog.columnconfigure(0, weight=1)
-        self._notesDialog.columnconfigure(1, weight=1)    
-
-    def _editNotes(self):
-        if self._notesDialog:
-            self._notesDialog.lift()
-        else:
-            try:
-                with open(self._notesFname, newline='') as f:
-                    reader = csv.reader(f)
-                    notesList = list(reader)
-                if len(notesList) < 1:
-                    notesList = [['*']]
-            except FileNotFoundError:
-                notesList = [['*']]
-            self._notesDialog = tk.Toplevel(self.parent, bg='#C9C9C9')
-            notesMenu = tk.Menu(self._notesDialog)
-            self._notesDialog.config(menu=notesMenu)
-            notesMenu.add_command(label='Insert Column', underline=0, command=self._addNotesColumn)
-            notesMenu.add_command(label='Insert Row', underline=0, command=self._addNotesRow)
-
-            self._notesDialog.protocol('WM_DELETE_WINDOW', self._cancelNotes)
-            self._notesFrame = LocalDataFrame(self._notesDialog, data=notesList, font=self._defaultFont, editable=True,
-                                              wraps=self._notesWrap, widths=self._notesWidth)
-            self._notesDialog.rowconfigure(0, weight=1)
-            self._notesSaveButton = tk.Button(self._notesDialog, text='Save', command=self._saveNotes, font=self._defaultFont)
-            self._notesCancelButton = tk.Button(self._notesDialog, text='Cancel', command=self._cancelNotes, font=self._defaultFont)
-            self._notesFrame.grid(row=0, column=0, columnspan=2, sticky='nsew')
-            self._notesSaveButton.grid(row=1, column=0, sticky='e')
-            self._notesCancelButton.grid(row=1, column=1, sticky='w')
-            self._notesDialog.columnconfigure(0, weight=1)
-            self._notesDialog.columnconfigure(1, weight=1)    
-    
+                
     def _levelUp(self):
         # Save current level and setup next level in database
         if messagebox.askyesno('Level Up', f'Save Level {self._curLevel} and Level Up?'):
@@ -593,6 +681,12 @@ class rootWindow(tk.Frame):
                                      f' failed with message\n{str(e)}')
             self._drawFrame()
 
+    def _notesEdit(self):
+        if self._notesDialog:
+            self._notesDialog.show()
+        else:
+            self._notesDialog = notesDialog(**self._notesConfig)
+            
     def _saveDB(self, *args, force=False):
         if force or messagebox.askyesno('Save', 'Commit all skill level changes?'):
             try:
@@ -700,11 +794,11 @@ class rootWindow(tk.Frame):
     def _setupEditMenu(self):
         self._editMenu = tk.Menu(self._menu, tearoff=0)
         self._editMenu.add_command(label="Level-Up", command=self._levelUp, underline=6)
-        self._editMenu.add_command(label='Edit Notes', command=self._editNotes, underline=5)        
+        self._editMenu.add_command(label='Edit Notes', command=self._notesEdit, underline=5)        
         self._editMenu.add_command(label="Refresh Data", command=self._refreshData, underline=0)        
         self._editMenu.add_separator()
-        self._editMenu.add_command(label="Set Level", command=self._setLevel, underline=4)
-        self._editMenu.add_command(label="Edit Level", command=self._editLevel, underline=0)
+        self._editMenu.add_command(label="Set Level", command=self._levelSet, underline=4)
+        self._editMenu.add_command(label="Edit Level", command=self._levelEdit, underline=0)
         self._editMenu.add_command(label="Major Skills", command=self._selectMajorSkills, underline=0)
         self._editMenu.add_separator()
         self._editMenu.add_command(label='SQL', command=self._showSQL, underline=0)
@@ -763,17 +857,17 @@ class rootWindow(tk.Frame):
                 messagebox.showwarning('Unknown Hot Key', f'Unknown hotkey {event.keysym}')
 
     def _checkMenu(self):
-        STATES = ['disabled', 'normal', ]       
+        STATES = { False: 'disabled', True: 'normal', }
         dbValid = self._dbName is not None and os.path.isfile(self._dbName)
         dbDirty = dbValid and (sum(self._dirty) > 0)
         levelUp = (dbValid and self._levelsInc > 9)
         hasRecent = len(self._recentList) > 0
         
-        self._fileMenu.entryconfigure(2, state=STATES[int(dbDirty)])  # Save menu on if valid
-        self._fileMenu.entryconfigure(3, state=STATES[int(hasRecent)])  # Recent menu on if valid
+        self._fileMenu.entryconfigure(2, state=STATES[dbDirty])  # Save menu on if valid
+        self._fileMenu.entryconfigure(3, state=STATES[hasRecent])  # Recent menu on if valid
         self._menu.entryconfigure(2, state=STATES[dbValid])  # Level menu only if valid
         self._menu.entryconfigure(3, state=STATES[dbValid])  # Inc menu online if dbValid
-        self._editMenu.entryconfigure(0, state=STATES[int(levelUp)])
+        self._editMenu.entryconfigure(0, state=STATES[levelUp])
         
         if dbDirty:
             self._bindHotkeys(self.parent, ['S', 's'])
