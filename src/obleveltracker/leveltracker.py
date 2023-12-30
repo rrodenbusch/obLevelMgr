@@ -91,8 +91,8 @@ class notesDialog(tk.Frame):
         # Setup the dialog frame
         notesMenu = tk.Menu(self._notesDialog)
         self._notesDialog.config(menu=notesMenu)
-        fileMenu = tk.Menu(notesMenu)
-        editMenu = tk.Menu(notesMenu)
+        fileMenu = tk.Menu(notesMenu,tearoff=0)
+        editMenu = tk.Menu(notesMenu,tearoff=0)
         notesMenu.add_cascade(label='File', underline=0, menu=fileMenu)
         fileMenu.add_command(label='Save', underline=0, command=self._notesSave, accelerator='Ctrl-S')
         fileMenu.add_command(label='Close', underline=0, command=self._notesClose, accelerator='Ctrl-C')
@@ -294,6 +294,7 @@ class rootWindow(tk.Frame):
         self._config.optionxform = str
         self._tkDefaultFont = tk.font.nametofont("TkDefaultFont")
         self._defaultFont = tk.font.Font()
+        self._attrFont = tk.font.Font()
         self._notesConfig = {'font': tk.font.Font(), 'fname': f"{self._homeDir}/notes.csv"}
         try:
             if os.path.isfile(self._cfgFname):
@@ -307,6 +308,10 @@ class rootWindow(tk.Frame):
                 self._defaultFont.configure(weight=self._config.get('default', 'fontWeight'))
             if self._config.has_option('default', 'fontName'):
                 self._defaultFont.configure(family=self._config.get('default', 'fontName'))
+            if self._config.has_section('Attributes'):
+                self._attrFont['family'] = self._config.get('Attributes','fontName',fallback=self._attrFont['family'])
+                self._attrFont['size'] = self._config.get('Attributes','fontSize',fallback=self._attrFont['size'])       
+                self._attrFont['weight'] = self._config.get('Attributes','fontWeight',fallback=self._attrFont['weight'])
             if self._config.has_section('Notes'):
                 wrapStr = self._config.get('Notes', 'Wrap', fallback='')
                 widthStr = self._config.get('Notes', 'Width', fallback='')
@@ -373,11 +378,11 @@ class rootWindow(tk.Frame):
             self._desc.grid(row=1, column=2, sticky='nsew')
             
             self._attrs = LocalDataFrame(self.parent, shape=attrshape, cnf=skillcnf, data=self._attrSums, anchor='n',
-                                         font=self._defaultFont,)
+                                         font=self._attrFont,)
             self._attrs.grid(row=2, column=0, sticky='nsew', pady=10, ipady=2)
             
             self._attrdesc = LocalDataFrame(self.parent, shape=attrdesc, cnf=desccnf, data=self._attrdesclist,
-                                            font=self._defaultFont)
+                                            font=self._attrFont)
             self._attrdesc.grid(row=2, column=2, sticky='nsew', pady=10,)
             
             self.parent.rowconfigure(1, weight=10)
