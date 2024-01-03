@@ -497,9 +497,9 @@ class rootWindow(tk.Frame):
         skill = self._key2skill[key]
         attrkey = self._attr2key[ self._skill2attr[skill] ]
         if messagebox.askyesno('Increase Skill', f'Increment {skill}?'):
-            self._stats[x] = (self._stats[x][0] + 1, self._stats[x][1] + 1)
+            self._stats[x] = (self._stats[x][0]+1, self._stats[x][1] + 1)
             self._skills.update(row=x, data=(self._stats[x]))
-            self._attrSums[attrkey] = (self._attrSums[attrkey][0] + 1, self._attrSums[attrkey][1] + 1)
+            self._attrSums[attrkey] = (self._attrSums[attrkey][0], self._attrSums[attrkey][1] + 1)
             self._attrs.update(row=attrkey, data=self._attrSums[attrkey])
             self._dirty[x] = 1
             if x < self._majorSkillCnt:
