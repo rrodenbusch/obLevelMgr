@@ -618,7 +618,7 @@ class LocalDataDialog():
         if 'parent' in kw:
             del kw['parent']
         font = kw.get('font', self._font)
-        self._entryFrame = LocalDataFrame(parent=self._popup, **kw)
+        self._entryFrame = LocalDataFrame(parent=self._popup, **kw, font=font)
         self._entryFrame.grid(row=0, column=0, columnspan=2, sticky='nsew')
         self._okButton = tk.Button(self._popup, text='Save', command=self._okPress, font=font, underline=0)
         self._okButton.grid(row=1, column=0, sticky='e')

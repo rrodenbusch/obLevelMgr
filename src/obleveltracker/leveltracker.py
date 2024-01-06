@@ -91,8 +91,8 @@ class notesDialog(tk.Frame):
         # Setup the dialog frame
         notesMenu = tk.Menu(self._notesDialog)
         self._notesDialog.config(menu=notesMenu)
-        fileMenu = tk.Menu(notesMenu,tearoff=0)
-        editMenu = tk.Menu(notesMenu,tearoff=0)
+        fileMenu = tk.Menu(notesMenu, tearoff=0)
+        editMenu = tk.Menu(notesMenu, tearoff=0)
         notesMenu.add_cascade(label='File', underline=0, menu=fileMenu)
         fileMenu.add_command(label='Save', underline=0, command=self._notesSave, accelerator='Ctrl-S')
         fileMenu.add_command(label='Close', underline=0, command=self._notesClose, accelerator='Ctrl-C')
@@ -245,8 +245,8 @@ class rootWindow(tk.Frame):
         self._levelsInc = 0
         self._filetypes = (('DB files', '*.db'), ('All files', '*.*'))
         self._environ = dict(os.environ)
-        self._homeDir = self._environ.get('HOME', self._environ.get('HOMEPATH', ''))
-        self._cfgFname = f"{self._homeDir}/.oblevel.ini"
+        self._homeDir = self._environ.get('HOMEPATH', self._environ.get('HOME', ''))
+        self._cfgFname = os.path.join(self._homeDir, ".oblevel.ini")
         
         self._incCommands = [[lambda: self._inc(0)], [lambda: self._inc(1)], [lambda: self._inc(2)], [lambda: self._inc(3)], [lambda: self._inc(4)],
             [lambda: self._inc(5)], [lambda: self._inc(6)], [lambda: self._inc(7)], [lambda: self._inc(8)], [lambda: self._inc(9)],
@@ -295,12 +295,12 @@ class rootWindow(tk.Frame):
         self._tkDefaultFont = tk.font.nametofont("TkDefaultFont")
         self._defaultFont = tk.font.Font()
         self._attrFont = tk.font.Font()
-        self._notesConfig = {'font': tk.font.Font(), 'fname': f"{self._homeDir}/notes.csv"}
+        self._notesConfig = {'font': tk.font.Font(), 'fname': os.path.join(self._homeDir, "notes.csv")}
         try:
             if os.path.isfile(self._cfgFname):
                 self._config.read(self._cfgFname)
             else:
-                if os.path.isfile(f"{os.getcwd()}/oblevel.ini"):
+                if os.path.isfile(os.path.join(os.getcwd(), "oblevel.ini")):
                     self._config.read(f"{os.getcwd()}/oblevel.ini")
             if self._config.has_option('default', 'fontSize'):
                 self._defaultFont.configure(size=self._config.get('default', 'fontSize'))
@@ -309,9 +309,9 @@ class rootWindow(tk.Frame):
             if self._config.has_option('default', 'fontName'):
                 self._defaultFont.configure(family=self._config.get('default', 'fontName'))
             if self._config.has_section('Attributes'):
-                self._attrFont['family'] = self._config.get('Attributes','fontName',fallback=self._attrFont['family'])
-                self._attrFont['size'] = self._config.get('Attributes','fontSize',fallback=self._attrFont['size'])       
-                self._attrFont['weight'] = self._config.get('Attributes','fontWeight',fallback=self._attrFont['weight'])
+                self._attrFont['family'] = self._config.get('Attributes', 'fontName', fallback=self._attrFont['family'])
+                self._attrFont['size'] = self._config.get('Attributes', 'fontSize', fallback=self._attrFont['size'])       
+                self._attrFont['weight'] = self._config.get('Attributes', 'fontWeight', fallback=self._attrFont['weight'])
             if self._config.has_section('Notes'):
                 wrapStr = self._config.get('Notes', 'Wrap', fallback='')
                 widthStr = self._config.get('Notes', 'Width', fallback='')
@@ -497,7 +497,7 @@ class rootWindow(tk.Frame):
         skill = self._key2skill[key]
         attrkey = self._attr2key[ self._skill2attr[skill] ]
         if messagebox.askyesno('Increase Skill', f'Increment {skill}?'):
-            self._stats[x] = (self._stats[x][0]+1, self._stats[x][1] + 1)
+            self._stats[x] = (self._stats[x][0] + 1, self._stats[x][1] + 1)
             self._skills.update(row=x, data=(self._stats[x]))
             self._attrSums[attrkey] = (self._attrSums[attrkey][0], self._attrSums[attrkey][1] + 1)
             self._attrs.update(row=attrkey, data=self._attrSums[attrkey])
